@@ -53,6 +53,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- `examples/llm_chat.py`：零依赖的 DeepSeek / Ollama 聊天示例，支持交互与 30 天演示。
+- 示例默认只记用户事实、不保存助手回复；默认不把注入 Top-k 当成复习。
+
+### Fixed
+
+- `estimate_importance()` 不再把“我不吃什么？”这类问句误判为偏好事实；带“提醒/答应/截止”的请求仍保留高重要性。
+- 2 项问句回归测试；当前总计 73 项。
+
 ### Planned
 
 - 参数恢复与消融实验。

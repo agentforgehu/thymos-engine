@@ -106,7 +106,30 @@ python examples/chatbot_demo.py
 
 把 `fake_llm()` 换成 DeepSeek/OpenAI/Ollama 的调用，就是最小可用的记忆 Bot。
 
-### 2.2 如果你想完全控制
+### 2.2 接真实 LLM：DeepSeek / Ollama
+
+`examples/llm_chat.py` 是零依赖的真实版本：
+
+```powershell
+# DeepSeek
+$env:DEEPSEEK_API_KEY = "sk-..."
+python examples/llm_chat.py --provider deepseek
+
+# Ollama
+ollama serve
+ollama pull qwen2.5:7b
+python examples/llm_chat.py --provider ollama --model qwen2.5:7b
+```
+
+它做了三件关键的事：
+
+- 回复前用 `memory.context(user_text)` 取 Top-k 记忆 + 当前心境；
+- 回复后只用 `memory.observe(user_text)` 记用户事实，不保存每条助手回复；
+- 默认 `review=False`：把记忆注入 prompt 不等于用户复习了它；要显式做检索练习时加 `--review`。
+
+`--demo` 会跑一个 30 天演示，先存三件事，再清空对话历史，只让 Thymos 提供记忆来回答。
+
+### 2.3 如果你想完全控制
 
 `AgentMemory` 只是门面，底层仍然是 `Thymos`：
 

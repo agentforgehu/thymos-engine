@@ -53,3 +53,15 @@ def test_importance_rules_are_transparent():
     assert estimate_importance("我喜欢冰美式，不加糖") >= 0.8
     assert estimate_importance("明天面试，有点害怕") >= 0.8
     assert estimate_importance("嗯") <= 0.2
+
+
+def test_questions_are_not_stored_as_preferences(memory):
+    assert estimate_importance("我不吃什么？") <= 0.3
+    assert estimate_importance("我面试是哪天？") <= 0.3
+    assert memory.observe("我不吃什么？") is None
+    assert len(memory.mind.store) == 0
+
+
+def test_reminder_questions_are_still_important(memory):
+    assert estimate_importance("你能提醒我周五交材料吗？") >= 0.9
+    assert memory.observe("你能提醒我周五交材料吗？") is not None

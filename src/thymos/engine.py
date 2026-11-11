@@ -449,8 +449,15 @@ class Thymos:
         lines = ["## 相关记忆"]
         if not hits:
             lines.append("（没有找到相关记忆。不要编造。）")
+        seen: set[str] = set()
         for hit in hits:
             m = hit.memory
+            # Consolidation can leave a semantic copy with the same content as
+            # its episodic source.  Do not show the model the same fact twice.
+            key = m.content.strip()
+            if key in seen:
+                continue
+            seen.add(key)
             lines.append(
                 f"- {m.content}（相关度 {hit.score:.2f}，可提取度 {hit.retrievability:.0%}，"
                 f"情绪 {m.valence:+.2f}，稳定度 {m.stability:.2f} 天）"

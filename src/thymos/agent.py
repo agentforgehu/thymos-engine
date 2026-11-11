@@ -26,11 +26,16 @@ from .types import MemoryItem, RetrievalResult
 
 # Rules are intentionally cheap and transparent.  Replace `importance` with a
 # structured LLM appraisal when you need nuance, but keep this as the fallback.
-_PROMISE = re.compile(r"答应|约定|承诺|提醒|生日|面试|考试|哪天|几点|截止|deadline")
+_REMINDER = re.compile(r"提醒|答应|约定|承诺|截止|deadline")
+_PROMISE = re.compile(r"生日|面试|考试")
 _PREFERENCE = re.compile(r"我不吃|我喜欢|我讨厌|过敏|忌口|最爱|不喜欢|我习惯")
 _EMOTION = re.compile(r"难过|开心|崩溃|委屈|压力|害怕|焦虑|生气|孤独|失望|兴奋")
 _FACT = re.compile(r"我叫|我是|我在|我住|我的|我养|我有个|我在做|我今年")
 _SMALLTALK = re.compile(r"^(嗯|哦|好|哈哈|在吗|早|晚安|谢谢|没事|收到)[。！？!? ]*$")
+_QUESTION = re.compile(
+    r"^(什么|哪|谁|怎么|为什么|为啥|多少|几|是否|是不是|能不能|可不可以|要不要|有没有|还记得)"
+    r"|什么|哪[天个]|几点|什么时候|[?？]\s*$"
+)
 
 
 def estimate_importance(text: str) -> float:
@@ -42,6 +47,13 @@ def estimate_importance(text: str) -> float:
     text = (text or "").strip()
     if not text:
         return 0.0
+    # A reminder/commitment is worth keeping even when phrased as a question.
+    if _REMINDER.search(text):
+        return 0.90
+    # Questions are requests for information, not new facts about the user.
+    # Keep them out of long-term memory unless the host overrides importance.
+    if _QUESTION.search(text):
+        return 0.25
     if _PROMISE.search(text):
         return 0.90
     if _PREFERENCE.search(text):
