@@ -6,16 +6,16 @@
 
 一个本地优先、可解释、可复现的「情绪 × 记忆 × 内分泌 × 环境」耦合引擎。
 
-[English](README.en.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
+[English](README.en.md) · [教程](docs/TUTORIAL.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.1%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.1.1%20alpha-f59e0b)
 
 </div>
 
-> **状态：v0.1 本地实验版。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学沙盒：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，观察它们如何互相拉扯。API 仍可能变化。
+> **状态：v0.1.1 本地实验版。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学沙盒：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，观察它们如何互相拉扯。API 仍可能变化。
 
 ---
 
@@ -126,6 +126,33 @@ print(snapshot["endocrine"]["levels"])
 
 ---
 
+## 接进自己的 Bot
+
+如果你的 Bot 只需要“回复前回忆、回复后记录”，用 `AgentMemory` 三个调用就够：
+
+```python
+from thymos import AgentMemory, Profile, ThymosConfig
+
+memory = AgentMemory(
+    ".thymos/my_bot.json",
+    profile=Profile(name="用户", location_name="上海", timezone="Asia/Shanghai"),
+    config=ThymosConfig(offline=True, seed=7),
+)
+
+context = memory.context(user_text, top_k=3, min_score=0.30)  # 回复前
+reply = my_llm(system_prompt + context, user_text)           # 你的 LLM
+memory.observe(user_text)                                    # 回复后：只记用户事实
+memory.end_session(7.5)                                      # 夜间/退出
+```
+
+只有当回复里包含承诺或重要的自我披露时，才传第二个参数 `assistant_text`；不要把每条模型回复都写回记忆。
+
+完整原理、记忆存储格式、遗忘公式、情绪评价和 LLM 边界，见
+[从 0 到 1 教程](docs/TUTORIAL.md)；接口细节见 [集成指南](docs/INTEGRATION.md)。
+可运行示例：`python examples/chatbot_demo.py`。
+
+---
+
 ## 它到底建模了什么
 
 | 层 | 机制 | 关键实现 |
@@ -153,7 +180,7 @@ print(snapshot["endocrine"]["levels"])
 | Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
 | Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
 | ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
-| **Thymos** | **痕迹 + 关联图 + 图式** | **FSRS 曲线** | **快情绪 + 慢心境** | **8 变量 HPA** | **天气/光照/季节** | **是，67 项测试 + 5 个实验** |
+| **Thymos** | **痕迹 + 关联图 + 图式** | **FSRS 曲线** | **快情绪 + 慢心境** | **8 变量 HPA** | **天气/光照/季节** | **是，71 项测试 + 5 个实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
 
@@ -240,12 +267,13 @@ src/thymos/
   weather.py      Open-Meteo 客户端 + 缓存 + 合成天气
   memory.py       痕迹存储 + 稀疏关联图
   engine.py       编排、持久化、巩固、快照
+  agent.py        AgentMemory 门面（context / observe / end_session）
   api.py          标准库 HTTP API
   dashboard.html  零依赖可视化面板
   cli.py          命令行
 experiments/      五个可复现实验
-tests/            67 项测试
-docs/             研究、设计、实验、命名、路线图
+tests/            71 项测试
+docs/             教程、研究、设计、实验、命名、路线图
 ```
 
 ---
@@ -260,7 +288,7 @@ docs/             研究、设计、实验、命名、路线图
 
 ## 路线图
 
-- **v0.1（当前）** 本地实验版：核心引擎、CLI、面板、67 项测试、5 个实验。
+- **v0.1.1（当前）** 本地实验版：核心引擎、CLI、面板、`AgentMemory` 接入层、71 项测试、5 个实验。
 - **v0.2** 评价适配器（LLM / 结构化输入）、真实嵌入后端、SQLite 存储、导入导出。
 - **v0.3** MCP Server 与 Agent 框架适配（Letta / LangGraph / 自建循环）。
 - **v0.4** 参数拟合工具、个体化校准、更多环境变量（空气质量、噪声、社交密度）。

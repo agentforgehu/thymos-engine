@@ -2,65 +2,62 @@
 
 > 目标：让 Agent 在每轮对话前后做两件小事——**先回忆，再经历**——而不是把全部历史塞进上下文。
 >
-> 本文给出三种集成方式：Python 直接调用、HTTP API、Agent 循环模式。MCP Server 在路线图中（P3）。
+> 本文是接口参考。想看“记忆怎么存、遗忘怎么算、情绪怎么来、LLM 负责什么”，先读
+> [TUTORIAL.md](TUTORIAL.md)。本文给出三种集成方式：Python 直接调用、HTTP API、Agent 循环模式。
+> MCP Server 在路线图中（P3）。
 
 ---
 
-## 1. 最小集成：Python
+## 1. 最小集成：`AgentMemory`
 
 ```python
-from thymos import Profile, Thymos, ThymosConfig
+from thymos import AgentMemory, Profile, ThymosConfig
 
-mind = Thymos(
-    profile=Profile(name="用户", location_name="上海", latitude=31.23, longitude=121.47),
-    config=ThymosConfig(offline=True),
-    state_path=".thymos/agent.json",
+memory = AgentMemory(
+    ".thymos/agent.json",
+    profile=Profile(name="用户", location_name="上海", timezone="Asia/Shanghai"),
+    config=ThymosConfig(offline=True, seed=7),
 )
 
-# 对话前：按用户这句话回忆
-hits = mind.recall(user_text, top_k=5)
-
-# 把回忆与当前状态注入系统提示
-context = mind.render_context(hits)  # 见下方辅助函数
+# 对话前：按用户这句话回忆，并渲染成提示词块
+context = memory.context(user_text, top_k=3, min_score=0.30)
 system_prompt = f"""你是一个有记忆的助手。以下是相关的过去经历与当前状态。
 不要声称自己有真实的生理感受；这些是模拟状态，用于保持叙事一致。
 
 {context}
 """
 
-# 对话后：把这次交流编码为经历
-mind.perceive(
-    f"用户说：{user_text}\n我回应：{assistant_text}",
-    importance=0.6,
-    tags=["对话"],
+# 对话后：只把用户说的、值得记的部分编码为经历
+memory.observe(user_text)
+
+# 夜间/退出时：巩固并保存
+memory.end_session(7.5)
+```
+
+`AgentMemory` 是薄门面，底层仍然是 `Thymos`；需要完全控制时用 `memory.mind`。
+只有回复里包含承诺/约定/重要自我披露时，才传 `assistant_text`；不要默认保存每条模型回复。
+
+### 1.1 底层等价写法
+
+`render_context()` 已经内置，不需要自己拼：
+
+```python
+from thymos import Profile, Thymos, ThymosConfig
+
+mind = Thymos(
+    profile=Profile(name="用户", location_name="上海"),
+    config=ThymosConfig(offline=True),
+    state_path=".thymos/agent.json",
 )
 
-# 夜间：巩固
+hits = mind.recall(user_text, top_k=5)
+context = mind.render_context(hits)   # Top-k 记忆 + 心境/压力摘要
+mind.perceive(f"用户说：{user_text}", importance=0.7, tags=["对话"])
 mind.consolidate(7.5)
 mind.save()
 ```
 
-### 1.1 渲染上下文
-
-`Thymos` 没有内置 `render_context`，因为不同产品的语气不同。建议：
-
-```python
-def render_context(hits, snapshot):
-    lines = []
-    for h in hits:
-        m = h.memory
-        lines.append(
-            f"- [{m.created_at:%Y-%m-%d}] {m.content}"
-            f"（相关度 {h.score:.2f}，可提取度 {h.retrievability:.0%}，"
-            f"情绪 {m.valence:+.2f}）"
-        )
-    affect = snapshot["affect"]
-    lines.append(
-        f"\n当前模拟状态：心境 {affect['mood']['valence']:+.2f}，"
-        f"压力 {affect['stress']:.2f}，主导情绪 {affect['emotion']['label']}。"
-    )
-    return "\n".join(lines)
-```
+如果你想要产品的语气，可以基于 `hits` 自己渲染；但不要把 `snapshot()` 的完整 JSON 直接塞进 prompt。
 
 **不要**把 `endocrine` 的原始数值直接写给 LLM，除非你在做可解释性界面。LLM 很容易把“皮质醇 0.62”编造成“你的压力激素过高”。
 

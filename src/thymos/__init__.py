@@ -21,12 +21,15 @@ a seed, so experiments are reproducible.
 
 from .config import Profile, ThymosConfig
 from .engine import Thymos
+from .agent import AgentMemory, estimate_importance
 from .types import Appraisal, Emotion, MemoryItem, RetrievalResult
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "Thymos",
+    "AgentMemory",
+    "estimate_importance",
     "Profile",
     "ThymosConfig",
     "Appraisal",

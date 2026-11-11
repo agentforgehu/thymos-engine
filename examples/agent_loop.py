@@ -17,27 +17,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from thymos import Profile, Thymos, ThymosConfig
 
 
-def render_context(mind: Thymos, hits, snapshot: dict) -> str:
-    lines = ["## 相关记忆"]
-    if not hits:
-        lines.append("（没有找到相关记忆。不要编造。）")
-    for hit in hits:
-        m = hit.memory
-        lines.append(
-            f"- {m.content}（相关度 {hit.score:.2f}，可提取度 {hit.retrievability:.0%}，"
-            f"情绪 {m.valence:+.2f}）"
-        )
-    affect = snapshot["affect"]
-    lines.append("")
-    lines.append("## 当前模拟状态")
-    lines.append(
-        f"心境 {affect['mood']['valence']:+.2f}；压力 {affect['stress']:.2f}；"
-        f"主导情绪 {affect['emotion']['label']}。"
-    )
-    lines.append("这些是模拟状态，不是真实生理感受；只用于保持语气与叙事一致。")
-    return "\n".join(lines)
-
-
 def fake_llm(system_prompt: str, user_text: str) -> str:
     # A real implementation would call OpenAI/Anthropic/local model here.
     clean = user_text.rstrip("。！？.!?")
@@ -60,8 +39,7 @@ def main() -> None:
 
     for text in turns:
         hits = mind.recall(text, top_k=3)
-        snapshot = mind.snapshot()
-        context = render_context(mind, hits, snapshot)
+        context = mind.render_context(hits)
         system_prompt = f"""你是一个有记忆的助手。以下是你可以使用的记忆与状态。
 不要声称自己有真实的激素或身体；不要用情绪操控用户。
 

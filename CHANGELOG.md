@@ -2,6 +2,24 @@
 
 本项目遵循语义化版本（SemVer）。研究性 API 在 1.0 前可能变化，破坏性变更会写入此处。
 
+## [0.1.1] — 2026-11-12
+
+面向接入的补丁版：不改变核心动力学，只降低“把它接进 Bot”的门槛。
+
+### Added
+
+- `AgentMemory` 门面：`context()` / `observe()` / `end_session()`，三调用接入聊天 Bot。
+- `estimate_importance()`：透明、可审计的消息重要性先验。
+- `docs/TUTORIAL.md`：从 0 到 1 的中文教程，解释记忆存储、遗忘、情绪、LLM 边界与改进点。
+- `examples/chatbot_demo.py`：不调用真实 LLM 的可运行记忆 Bot 示例。
+- 4 项 `AgentMemory` 测试，总计 71 项。
+
+### Changed
+
+- `examples/agent_loop.py` 改用内置 `mind.render_context()`，不再重复实现。
+- `docs/INTEGRATION.md` 增加 `AgentMemory` 快速接入，修正“未内置 render_context”的过时说明。
+- README 增加“接进自己的 Bot”入口。
+
 ## [0.1.0] — 2026-11-12
 
 首个本地实验版。
@@ -21,7 +39,7 @@
 - JSON 持久化（原子写入）。
 - CLI：`init`、`demo`、`perceive`、`recall`、`tick`、`consolidate`、`snapshot`、`serve`。
 - 零依赖 HTTP API 与暗色可视化面板。
-- 67 项 pytest 测试。
+- 67 项 pytest 测试（0.1.0 基线；0.1.1 为 71 项）。
 - 5 个可复现实验、图表与指标 JSON。
 - 文档：研究综述、设计、实验、命名、路线图、集成指南。
 
