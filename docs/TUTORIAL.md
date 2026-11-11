@@ -440,7 +440,7 @@ from thymos import AgentMemory
 memory = AgentMemory(".thymos/bot.json")
 context = memory.context(user_text)
 # ... call LLM ...
-memory.observe(user_text, reply)
+memory.observe(user_text)  # 只记用户事实，不保存助手回复
 memory.end_session()
 ```
 
