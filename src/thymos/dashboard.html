@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thymos · 心潮</title>
+<style>
+  :root{
+    --bg:#0a0e13;
+    --panel:#111821;
+    --panel-2:#151d28;
+    --line:#1f2a37;
+    --text:#e8eef5;
+    --muted:#8b9bb0;
+    --teal:#3ddc97;
+    --blue:#7c9cff;
+    --warm:#f2b880;
+    --rose:#ff7a90;
+    --violet:#b58cff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:
+      radial-gradient(1100px 600px at 12% -10%, rgba(61,220,151,.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(124,156,255,.10), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:"Segoe UI","Microsoft YaHei",-apple-system,BlinkMacSystemFont,sans-serif;
+    min-height:100vh;
+  }
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:22px 30px 12px;gap:18px;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{
+    width:44px;height:44px;border-radius:13px;display:grid;place-items:center;
+    background:linear-gradient(145deg,#183a31,#101a24);border:1px solid #245c48;
+    font-size:24px;color:var(--teal);font-family:Georgia,serif;
+  }
+  h1{font-size:19px;margin:0;letter-spacing:.3px}
+  .brand p{margin:2px 0 0;color:var(--muted);font-size:12px;letter-spacing:.4px}
+  .status{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12.5px}
+  .pill{
+    border:1px solid var(--line);background:var(--panel);padding:6px 11px;border-radius:999px;
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal)}
+  main{
+    display:grid;grid-template-columns:minmax(0,1.38fr) minmax(0,1fr);
+    gap:16px;padding:8px 30px 34px;max-width:1500px;margin:0 auto;
+  }
+  .col{display:flex;flex-direction:column;gap:16px;min-width:0}
+  .card{
+    background:linear-gradient(180deg,rgba(255,255,255,.018),transparent 40%),var(--panel);
+    border:1px solid var(--line);border-radius:18px;padding:18px 20px;
+    box-shadow:0 16px 40px rgba(0,0,0,.22);
+  }
+  .card-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+  h2{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;font-weight:600}
+  .card-head h2{margin:0}
+  .big{font-size:26px;font-weight:600;letter-spacing:-.5px}
+  .mood-line{display:flex;align-items:baseline;gap:12px}
+  .mood-line small{color:var(--muted);font-size:12px}
+  canvas{width:100%;height:186px;display:block}
+  .emotion-strip{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .tag{
+    font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);
+    color:var(--muted);background:rgba(255,255,255,.02)
+  }
+  .bars{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+  .bar-row{display:grid;grid-template-columns:86px 1fr 44px;align-items:center;gap:10px;font-size:12px}
+  .bar-row span:first-child{color:#c4d0de}
+  .bar-row span:last-child{color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+  .track{height:7px;background:#0b1119;border-radius:999px;overflow:hidden;border:1px solid #1a2431}
+  .fill{height:100%;border-radius:999px;transition:width .5s ease}
+  .mods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
+  .mod{border:1px solid var(--line);border-radius:11px;padding:8px 10px;background:var(--panel-2)}
+  .mod b{display:block;font-size:16px;font-weight:600}
+  .mod small{color:var(--muted);font-size:10.5px;letter-spacing:.06em}
+  .memory-list{display:flex;flex-direction:column;gap:9px;max-height:430px;overflow:auto;padding-right:4px}
+  .memory{
+    border:1px solid var(--line);border-radius:13px;padding:11px 13px;background:var(--panel-2);
+  }
+  .memory-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .memory p{margin:0;font-size:13px;line-height:1.55;color:#dbe5f0}
+  .memory .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:10.8px;color:var(--muted)}
+  .retention{display:flex;align-items:center;gap:8px;margin-top:9px}
+  .retention .track{flex:1}
+  .retention small{font-size:10.5px;color:var(--muted);min-width:34px;text-align:right}
+  .empty{color:var(--muted);font-size:12.5px;padding:8px 2px}
+  .env-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+  .env-cell{border:1px solid var(--line);background:var(--panel-2);border-radius:11px;padding:9px 11px}
+  .env-cell small{display:block;color:var(--muted);font-size:10.5px;letter-spacing:.05em;margin-bottom:3px}
+  .env-cell b{font-size:14px;font-weight:600}
+  textarea,input[type=text],input:not([type]){
+    width:100%;background:#0b1119;border:1px solid #223041;color:var(--text);
+    border-radius:11px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;
+  }
+  textarea{min-height:74px;resize:vertical;line-height:1.55}
+  textarea:focus,input:focus{border-color:#2f7f63;box-shadow:0 0 0 3px rgba(61,220,151,.08)}
+  .row{display:flex;gap:10px;align-items:center;margin-top:10px}
+  .row.inline input{flex:1}
+  label{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:9px;width:100%}
+  input[type=range]{flex:1;accent-color:var(--teal)}
+  button{
+    border:none;border-radius:11px;padding:10px 15px;font-size:12.5px;font-weight:600;
+    background:linear-gradient(180deg,#46e6a2,#2fbd80);color:#04120c;cursor:pointer;
+    transition:transform .12s ease,filter .12s ease;font-family:inherit;
+  }
+  button:hover{filter:brightness(1.06)}
+  button:active{transform:translateY(1px)}
+  button.ghost{background:transparent;border:1px solid var(--line);color:#c7d4e2;font-weight:500}
+  button.ghost:hover{border-color:#2f7f63;color:var(--teal)}
+  button:disabled{opacity:.5;cursor:wait}
+  .divider{height:1px;background:var(--line);margin:16px 0 12px}
+  h3{font-size:12px;color:var(--muted);margin:0 0 2px;letter-spacing:.08em;font-weight:600}
+  .hits{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+  .hit{border-left:2px solid #2b6a55;padding:6px 0 6px 10px;font-size:12px;color:#c6d4e3}
+  .hit b{color:var(--teal);font-weight:600;margin-right:6px}
+  #toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:#1b2634;border:1px solid #2c3d50;color:#dbe7f4;padding:10px 16px;border-radius:11px;
+    font-size:12.5px;opacity:0;transition:.25s;pointer-events:none;z-index:50;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media (max-width:960px){
+    main{grid-template-columns:1fr;padding:8px 16px 28px}
+    header{padding:18px 16px 8px}
+    .mods{grid-template-columns:repeat(3,1fr)}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">θ</div>
+    <div>
+      <h1>Thymos <span style="color:#5d7187;font-weight:400">/ 心潮</span></h1>
+      <p>类人情绪与记忆引擎 · 本地实验面板</p>
+    </div>
+  </div>
+  <div class="status">
+    <span class="pill"><span class="dot"></span><span id="profile-name">—</span></span>
+    <span class="pill" id="weather-pill">—</span>
+    <span id="clock">—</span>
+  </div>
+</header>
+
+<main>
+  <div class="col">
+    <section class="card">
+      <div class="card-head">
+        <h2>心境轨迹</h2>
+        <div class="mood-line">
+          <span class="big" id="mood-value">+0.00</span>
+          <small id="emotion-label">neutral</small>
+        </div>
+      </div>
+      <canvas id="mood-chart"></canvas>
+      <div class="emotion-strip" id="emotion-strip"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>记忆痕迹</h2>
+        <span class="tag" id="memory-count">0 条</span>
+      </div>
+      <div class="memory-list" id="memory-list"><div class="empty">还没有记忆。</div></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><h2>内分泌</h2><span class="tag" id="stress-pill">压力 —</span></div>
+      <div class="bars" id="hormone-list"></div>
+      <div class="mods">
+        <div class="mod"><b id="mod-encoding">—</b><small>编码增益</small></div>
+        <div class="mod"><b id="mod-retrieval">—</b><small>提取增益</small></div>
+        <div class="mod"><b id="mod-load">—</b><small>适应负荷</small></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>环境与节律</h2>
+      <div class="env-grid" id="env-grid"></div>
+    </section>
+
+    <section class="card">
+      <h2>体验一件事</h2>
+      <textarea id="event-text" placeholder="例如：今天的评审通过了，我松了一口气"></textarea>
+      <div class="row">
+        <label>重要度 <input id="importance" type="range" min="0" max="1" step="0.05" value="0.6"><span id="importance-value">0.60</span></label>
+      </div>
+      <div class="row"><input id="event-tags" placeholder="标签，用逗号分隔（可选）"></div>
+      <div class="row"><button id="perceive-btn">记录并感受</button></div>
+
+      <div class="divider"></div>
+      <h3>按线索回忆</h3>
+      <div class="row inline">
+        <input id="recall-query" placeholder="工作 压力">
+        <button id="recall-btn" class="ghost">回忆</button>
+      </div>
+      <div class="hits" id="recall-results"></div>
+
+      <div class="divider"></div>
+      <div class="row">
+        <button class="ghost" data-tick="1">+1 小时</button>
+        <button class="ghost" data-tick="6">+6 小时</button>
+        <button class="ghost" data-sleep="7.5">睡 7.5 小时</button>
+      </div>
+    </section>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const HORMONES = [
+  ["adrenaline","肾上腺素","#ff7a90"],
+  ["noradrenaline","去甲肾上腺素","#f2b880"],
+  ["cortisol","皮质醇","#ffb86b"],
+  ["dopamine","多巴胺","#3ddc97"],
+  ["serotonin","血清素","#7c9cff"],
+  ["oxytocin","催产素","#b58cff"],
+  ["melatonin","褪黑素","#5f7fa8"],
+  ["endorphin","内啡肽","#4fd1c5"]
+];
+const EMO_COLOR = {
+  joy:"#3ddc97", excitement:"#4ade80", contentment:"#86efac", hope:"#7c9cff",
+  trust:"#93c5fd", surprise:"#f2b880", anticipation:"#a3e635",
+  fear:"#ff7a90", anxiety:"#fb923c", anger:"#ef4444", sadness:"#60a5fa",
+  disgust:"#a78bfa", neutral:"#8b9bb0"
+};
+let history = [];
+let lastState = null;
+
+function esc(s){
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+async function api(path, body){
+  const opts = body ? {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)} : {};
+  const res = await fetch(path, opts);
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+  return data;
+}
+function fmt(v,n=2){ return (v>=0?"+":"") + Number(v).toFixed(n); }
+
+function drawChart(){
+  const canvas = $("mood-chart");
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = Math.max(320, rect.width), h = 186;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+
+  const pad = {l:34,r:12,t:12,b:22};
+  const x0 = pad.l, y0 = pad.t, cw = w-pad.l-pad.r, ch = h-pad.t-pad.b;
+  const min=-0.7,max=0.7;
+  const yFor = v => y0 + (max - v)/(max-min)*ch;
+
+  ctx.strokeStyle="#1b2532"; ctx.lineWidth=1; ctx.font="10px Segoe UI";
+  ctx.fillStyle="#5f7187"; ctx.textAlign="right";
+  [-0.6,-0.3,0,0.3,0.6].forEach(v=>{
+    const y = yFor(v);
+    ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x0+cw,y); ctx.stroke();
+    ctx.fillText(v.toFixed(1), x0-7, y+3);
+  });
+
+  if(history.length < 2){
+    ctx.fillStyle="#5f7187"; ctx.textAlign="center"; ctx.font="12px Segoe UI";
+    ctx.fillText("记录一件事，轨迹会从这里开始", x0+cw/2, y0+ch/2);
+    return;
+  }
+  const n = history.length;
+  const xFor = i => x0 + (n===1?cw/2:i/(n-1)*cw);
+  const pts = history.map((item,i)=>({x:xFor(i), y:yFor(item.v)}));
+
+  const grad = ctx.createLinearGradient(0,y0,0,y0+ch);
+  grad.addColorStop(0,"rgba(61,220,151,.28)");
+  grad.addColorStop(1,"rgba(61,220,151,0)");
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, yFor(0));
+  pts.forEach(p=>ctx.lineTo(p.x,p.y));
+  ctx.lineTo(pts[pts.length-1].x, yFor(0));
+  ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+
+  ctx.beginPath();
+  pts.forEach((p,i)=> i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+  ctx.strokeStyle="#3ddc97"; ctx.lineWidth=2.1; ctx.lineJoin="round"; ctx.stroke();
+
+  const last = pts[pts.length-1];
+  ctx.beginPath(); ctx.arc(last.x,last.y,3.6,0,Math.PI*2);
+  ctx.fillStyle="#3ddc97"; ctx.fill();
+  ctx.beginPath(); ctx.arc(last.x,last.y,7,0,Math.PI*2);
+  ctx.fillStyle="rgba(61,220,151,.18)"; ctx.fill();
+}
+
+function renderMemories(items){
+  const box = $("memory-list");
+  if(!items || !items.length){ box.innerHTML = '<div class="empty">还没有记忆。</div>'; return; }
+  box.innerHTML = items.map(m=>{
+    const pct = Math.round((m.retrievability ?? 0)*100);
+    const color = pct>66?"#3ddc97":pct>35?"#f2b880":"#ff7a90";
+    const tags = (m.tags||[]).slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join("");
+    const sign = (m.valence ?? 0) >= 0 ? "+" : "";
+    return `<div class="memory">
+      <div class="memory-top"><p>${esc(m.content)}</p></div>
+      <div class="meta">${tags}<span class="tag">稳定度 ${Number(m.stability_days).toFixed(2)} 天</span><span class="tag">复习 ${m.reps}</span><span class="tag">情绪 ${sign}${Number(m.valence).toFixed(2)}</span></div>
+      <div class="retention"><div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div><small>${pct}%</small></div>
+    </div>`;
+  }).join("");
+}
+
+function renderEnv(env, profile){
+  const cells = [
+    ["天气", env.condition || "—"],
+    ["气温 / 体感", `${Number(env.temp_c).toFixed(1)}° / ${Number(env.apparent_c).toFixed(1)}°`],
+    ["湿度", `${Number(env.humidity).toFixed(0)}%`],
+    ["气压", `${Number(env.pressure_hpa).toFixed(0)} hPa`],
+    ["昼长", `${Number(env.daylight_hours).toFixed(1)} 小时`],
+    ["季节 / 时段", `${env.season} · ${env.is_day?"白天":"夜晚"}`],
+    ["地点", `${env.location_name} · ${profile.name}`],
+    ["数据源", env.source === "synthetic" ? "合成天气（离线）" : env.source]
+  ];
+  $("env-grid").innerHTML = cells.map(([k,v])=>`<div class="env-cell"><small>${esc(k)}</small><b>${esc(v)}</b></div>`).join("");
+  $("weather-pill").textContent = `${env.location_name} ${Number(env.temp_c).toFixed(0)}° ${env.condition}`;
+}
+
+function render(s){
+  lastState = s;
+  $("profile-name").textContent = s.profile.name;
+  $("clock").textContent = s.local_time.replace("T"," ").slice(0,16);
+  const mood = s.affect.mood.valence;
+  $("mood-value").textContent = fmt(mood);
+  $("mood-value").style.color = mood > 0.08 ? "#3ddc97" : mood < -0.08 ? "#ff7a90" : "#e8eef5";
+  const label = s.affect.emotion.label;
+  $("emotion-label").textContent = label;
+  $("emotion-label").style.color = EMO_COLOR[label] || "#8b9bb0";
+  $("emotion-strip").innerHTML =
+    `<span class="tag">情绪价 ${fmt(s.affect.emotion.valence)}</span>` +
+    `<span class="tag">唤醒 ${Number(s.affect.emotion.arousal).toFixed(2)}</span>` +
+    `<span class="tag">支配 ${fmt(s.affect.emotion.dominance)}</span>` +
+    `<span class="tag">心境唤醒 ${Number(s.affect.mood.arousal).toFixed(2)}</span>`;
+  $("stress-pill").textContent = `压力 ${Number(s.affect.stress).toFixed(2)}`;
+  $("memory-count").textContent = `${s.memory.total} 条 · 平均可提取 ${(s.memory.avg_retrievability*100).toFixed(0)}%`;
+
+  $("hormone-list").innerHTML = HORMONES.map(([key,name,color])=>{
+    const v = s.endocrine.levels[key] ?? 0;
+    return `<div class="bar-row"><span>${name}</span><div class="track"><div class="fill" style="width:${Math.round(v*100)}%;background:${color}"></div></div><span>${Number(v).toFixed(2)}</span></div>`;
+  }).join("");
+  $("mod-encoding").textContent = Number(s.endocrine.encoding_gain).toFixed(2);
+  $("mod-retrieval").textContent = Number(s.endocrine.retrieval_gain).toFixed(2);
+  $("mod-load").textContent = Number(s.affect.allostatic_load).toFixed(2);
+
+  renderEnv(s.environment, s.profile);
+  renderMemories(s.top_memories);
+
+  const lastT = history.length ? history[history.length-1].t : 0;
+  if(!lastT || Math.abs(Date.now()-lastT) > 800){
+    history.push({t:Date.now(), v:mood});
+    if(history.length>120) history = history.slice(-120);
+  } else {
+    history[history.length-1].v = mood;
+  }
+  drawChart();
+}
+
+async function refresh(){
+  try{ render(await api("/api/state")); }
+  catch(e){ toast("读取状态失败：" + e.message); }
+}
+
+async function act(fn, btn, label){
+  if(btn) btn.disabled = true;
+  try{ await fn(); }
+  catch(e){ toast((label||"操作") + "失败：" + e.message); }
+  finally{ if(btn) btn.disabled = false; }
+}
+
+$("importance").addEventListener("input", e=>{
+  $("importance-value").textContent = Number(e.target.value).toFixed(2);
+});
+
+$("perceive-btn").addEventListener("click", async (e)=>{
+  const content = $("event-text").value.trim();
+  if(!content){ toast("先写下一件事"); return; }
+  await act(async ()=>{
+    const tags = $("event-tags").value.split(/[,，]/).map(x=>x.trim()).filter(Boolean);
+    const res = await api("/api/perceive", {content, importance:Number($("importance").value), tags});
+    $("event-text").value = "";
+    render(res.state);
+    const m = res.memory;
+    toast(`已编码：情绪 ${lastState.affect.emotion.label}，稳定度 ${Number(m.stability_days).toFixed(2)} 天`);
+  }, e.target, "记录");
+});
+
+$("recall-btn").addEventListener("click", async (e)=>{
+  const query = $("recall-query").value.trim();
+  if(!query){ toast("输入一个线索"); return; }
+  await act(async ()=>{
+    const res = await api("/api/recall", {query, top_k:4});
+    $("recall-results").innerHTML = res.hits.length
+      ? res.hits.map(h=>`<div class="hit"><b>${Number(h.score).toFixed(2)}</b>${esc(h.memory.content)}<br><span style="color:#6f8298;font-size:10.5px">可提取 ${(h.retrievability*100).toFixed(0)}% · 稳定度 ${Number(h.memory.stability_days).toFixed(2)} 天</span></div>`).join("")
+      : '<div class="empty">没有找到相关记忆。</div>';
+    render(res.state);
+  }, e.target, "回忆");
+});
+
+document.querySelectorAll("[data-tick]").forEach(btn=>{
+  btn.addEventListener("click", (e)=>act(async ()=>{
+    const res = await api("/api/tick", {hours:Number(btn.dataset.tick)});
+    render(res.state);
+  }, e.target, "推进时间"));
+});
+document.querySelectorAll("[data-sleep]").forEach(btn=>{
+  btn.addEventListener("click", (e)=>act(async ()=>{
+    const res = await api("/api/consolidate", {hours:Number(btn.dataset.sleep)});
+    render(res.state);
+    toast(`巩固完成：重放 ${res.result.replayed} 条记忆，新增图式 ${res.result.schemas_created} 条`);
+  }, e.target, "睡眠巩固"));
+});
+
+window.addEventListener("resize", drawChart);
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+name: Model or parameter discussion
+description: 质疑某个机制、参数或实验
+title: "[model] "
+labels: ["model", "discussion"]
+body:
+  - type: textarea
+    id: claim
+    attributes:
+      label: 你认为哪个机制/参数不对？
+      description: 请引用文件、公式或实验编号
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 证据或反例
+      description: 文献、复现结果、数学推导，或“我没有证据，只是怀疑”
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议怎么改？
+      description: 会影响哪些测试/实验？是否需要新参数？
+  - type: checkboxes
+    id: honesty
+    attributes:
+      label: 科学诚信
+      options:
+        - label: 我区分了“有证据的结论”与“我的猜测”
+          required: true

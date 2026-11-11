@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use Thymos in academic work, please cite this repository."
+title: "Thymos: A Local-First Engine Coupling Forgetting, Affect, Endocrine Modulation and Environment"
+abstract: >-
+  Thymos is a research sandbox that couples an FSRS-style forgetting curve,
+  appraisal-based affect, an eight-variable endocrine layer, and weather/light
+  coupling in one deterministic, inspectable state.
+authors:
+  - name: "Thymos contributors"
+version: 0.1.0
+date-released: "2026-11-12"
+license: MIT
+repository-code: "https://github.com/agentforgehu/thymos-engine"
+keywords:
+  - affective computing
+  - memory
+  - forgetting curve
+  - FSRS
+  - ACT-R
+  - endocrine
+  - agent

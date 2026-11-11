@@ -1,0 +1,30 @@
+name: Feature request
+description: 提出新功能或集成
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景
+      description: 谁在什么情况下需要它？
+    validations:
+      required: true
+  - type: textarea
+    id: gap
+    attributes:
+      label: 现有 API 为什么不够？
+    validations:
+      required: true
+  - type: textarea
+    id: design
+    attributes:
+      label: 建议的实现/接口（可选）
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: 范围确认
+      options:
+        - label: 这个功能不会用于心理诊断、情感操控或误导用户
+          required: true
+        - label: 我愿意参与实现或测试（可选）

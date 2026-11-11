@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Thymos runtime state
+.thymos/
+*.sqlite
+*.sqlite3
+
+# Working files
+.work/
+.manus/
+
+# Experiments output that is large or regenerated
+experiments/tmp/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

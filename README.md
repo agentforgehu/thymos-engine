@@ -1,0 +1,281 @@
+<div align="center">
+
+# Thymos · 心潮
+
+**记忆会褪色，情绪会涨落。Thymos 让 Agent 记得为什么。**
+
+一个本地优先、可解释、可复现的「情绪 × 记忆 × 内分泌 × 环境」耦合引擎。
+
+[English](README.en.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
+
+![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
+![License](https://img.shields.io/badge/license-MIT-2f855a)
+![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
+![Status](https://img.shields.io/badge/status-v0.1%20alpha-f59e0b)
+
+</div>
+
+> **状态：v0.1 本地实验版。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学沙盒：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，观察它们如何互相拉扯。API 仍可能变化。
+
+---
+
+## 为什么做 Thymos
+
+大多数 Agent 记忆系统在回答一个问题：**怎样把更多信息塞回上下文？**
+
+Thymos 想回答另外三个问题：
+
+1. **什么应该被忘掉？** 一条记忆不是“存在/不存在”，而是有一条随时间和复习变化的可提取度曲线。
+2. **为什么同一件事，今天想起和三个月后想起，感受不一样？** 情绪是快变量，心境是慢变量，内分泌是更慢的背景；回忆会改写记忆本身。
+3. **天气、季节、地点和睡眠，究竟该不该影响一个 Agent？** 如果影响，应该有多小、以什么方式、如何被审计？
+
+因此 Thymos 把五层放在同一个时钟上：
+
+```mermaid
+flowchart LR
+    ENV["环境<br/>天气 · 光照 · 季节 · 地点"] --> AFF
+    P["输入事件"] --> APP["评价 Appraisal<br/>OCC 维度"]
+    APP --> EMO["情绪<br/>PAD · 半衰期"]
+    EMO --> AFF["心境 / 压力 / 疲劳<br/>快慢双时间尺度"]
+    AFF --> MEM["记忆编码<br/>显著度 · 情绪电荷"]
+    ENDO["内分泌<br/>HPA · 儿茶酚胺 · 血清素 · 褪黑素"] --> MEM
+    ENDO --> AFF
+    MEM --> RET["提取<br/>FSRS 可提取度 + ACT-R 激活 + 情境/心境一致性"]
+    RET --> AFF
+    RET -->|"再巩固窗口"| MEM
+    MEM --> CON["睡眠巩固 / 图式抽象"]
+    CON --> MEM
+    AFF --> ENDO
+```
+
+一句话：**事件先被评价，评价产生情绪，情绪和内分泌一起决定这条记忆有多深；之后每一次回忆，都要同时穿过遗忘曲线、线索匹配和当下心境。**
+
+---
+
+## 30 秒跑起来
+
+需要 Python 3.10+。运行时零依赖。
+
+### Windows PowerShell
+
+```powershell
+git clone https://github.com/agentforgehu/thymos-engine.git
+cd thymos-engine
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+python -m thymos --offline demo
+```
+
+### macOS / Linux
+
+```bash
+git clone https://github.com/agentforgehu/thymos-engine.git
+cd thymos-engine
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+python -m thymos --offline demo
+```
+
+`--offline` 使用确定性的合成天气，便于复现实验；去掉它就会调用 Open-Meteo（无需 API Key）。
+
+### 打开可视化面板
+
+```bash
+python -m thymos --offline serve
+```
+
+浏览器会打开 `http://127.0.0.1:8787/`。面板可以记录事件、观察心境曲线与八种激素样变量、按线索回忆、推进时间、模拟睡眠巩固。
+
+---
+
+## 最小示例
+
+```python
+from thymos import Profile, Thymos, ThymosConfig
+
+mind = Thymos(
+    profile=Profile(name="小林", location_name="上海", latitude=31.23, longitude=121.47),
+    config=ThymosConfig(offline=True, seed=7),
+)
+
+# 一件重要的事：评价 -> 情绪 -> 内分泌脉冲 -> 记忆编码
+item = mind.perceive(
+    "项目评审通过了，大家认可我的方案，我松了一口气",
+    importance=0.85,
+    tags=["工作"],
+)
+print(item.valence, item.stability)      # 情绪电荷 / 初始稳定度（天）
+
+# 六小时后，按线索回忆
+mind.tick(6 * 3600)
+for hit in mind.recall("评审 工作", top_k=3):
+    print(hit.score, hit.retrievability, hit.memory.content)
+
+# 睡一觉：重放重要记忆、抽象图式
+print(mind.consolidate(7.5))
+
+# 完整可审计状态
+snapshot = mind.snapshot()
+print(snapshot["affect"])
+print(snapshot["endocrine"]["levels"])
+```
+
+输出不是一句“我记住了”，而是一组可以追问的数：这条记忆的稳定度是多少天、当前可提取度是多少、为什么它排在第一、当下皮质醇是否高于昼夜预期、天气贡献了多少心境偏置。
+
+---
+
+## 它到底建模了什么
+
+| 层 | 机制 | 关键实现 |
+|---|---|---|
+| 记忆痕迹 | 遗忘曲线、间隔复习、测试效应 | FSRS 幂律曲线；稳定度随成功提取增长 |
+| 提取 | 频率、近因、线索、关联扩散、心境一致性 | ACT-R 基础激活 + 情境相似度 + 稀疏关联图 |
+| 评价 | OCC 风格的评价维度 | 目标相关性、可取性、新异性、确定性、控制感、 agency、规范 |
+| 情绪 | 离散标签 + PAD 连续量 | 13 类情绪；快变量，半衰期 5–480 分钟 |
+| 心境 | 慢积分、稳态回拉、情绪惯性 | 一阶动力学；受内分泌、天气、昼夜节律影响 |
+| 内分泌 | 八个激素样变量 + HPA 级联 | 肾上腺素、去甲肾上腺素、皮质醇、多巴胺、血清素、催产素、褪黑素、内啡肽 |
+| 环境 | 天气、光照、季节、地点、睡眠债 | Open-Meteo 实时数据；离线合成天气；效应有界 |
+| 巩固 | 睡眠重放、语义图式 | 稳定度提升；重复出现的主题抽象为 semantic memory |
+| 再巩固 | 回忆后短暂可改写窗口 | 窗口内情绪电荷改写更强，窗口外减半 |
+
+完整公式、参数来源和耦合矩阵见 [docs/DESIGN.md](docs/DESIGN.md)。
+
+---
+
+## 与既有系统的差异
+
+| 系统 | 记忆组织 | 显式遗忘 | 情绪动力学 | 内分泌 | 真实环境耦合 | 可复现实验 |
+|---|---|---|---|---|---|---|
+| Mem0 | 抽取 + 向量/图 | 部分 | — | — | — | 部分 |
+| Zep / Graphiti | 时序知识图 | 时间有效性 | — | — | — | 部分 |
+| Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
+| Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
+| ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
+| **Thymos** | **痕迹 + 关联图 + 图式** | **FSRS 曲线** | **快情绪 + 慢心境** | **8 变量 HPA** | **天气/光照/季节** | **是，67 项测试 + 5 个实验** |
+
+Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
+
+---
+
+## 实验一瞥
+
+所有实验可用一条命令重跑：
+
+```bash
+python experiments/run_experiments.py
+```
+
+指标写入 [`docs/experiments.json`](docs/experiments.json)，图写入 [`docs/figures/`](docs/figures/)。
+
+| 实验 | 关键结果 |
+|---|---|
+| 遗忘函数拟合 | 拉伸指数 RMSE **0.0225**，优于指数 0.0567 与 FSRS 0.1896 |
+| 间隔效应 | 同样复习 5 次，30 天保持率 **38% vs 66%** |
+| 急性应激 | 皮质醇峰值在应激后 **70 分钟**；提取增益最低降至 **0.759** |
+| 天气耦合 | 30 天心境平均绝对差 **0.012**，最大 **0.028**（效应刻意保持很小） |
+| 情绪记忆 | 半衰期：中性 **9.6 天** / 轻度 **15.8 天** / 高唤醒 **35.9 天** |
+
+![间隔效应](docs/figures/fig2_spacing.png)
+
+![应激与提取](docs/figures/fig3_stress_memory.png)
+
+> 重要：这些数字验证的是**实现内部自洽**，不是对人类心理的测量。实验设计和威胁见 [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)。
+
+---
+
+## 命令行
+
+```text
+python -m thymos init --name 小林 --city 上海
+python -m thymos perceive "今天面试通过了，很开心" --importance 0.9 --tags 工作
+python -m thymos recall "面试" --top-k 5
+python -m thymos tick --hours 6
+python -m thymos consolidate --hours 7.5
+python -m thymos snapshot
+python -m thymos serve
+python -m thymos demo
+```
+
+状态默认保存在 `.thymos/state.json`，是普通 JSON，可 diff、可备份、可手工检查。
+
+---
+
+## 设计原则
+
+1. **本地优先。** 默认不联网；只有显式启用天气时才发送粗略经纬度。没有账号、没有遥测。
+2. **零运行时依赖。** 核心只用标准库，方便嵌入、审计和长期保存。
+3. **确定性。** 同一 seed、同一输入、同一时间戳，输出一致。
+4. **可解释。** 每个判断都带 `components`：语义、标签、地点、天气、时段、心境、基础激活、关联扩散。
+5. **效应有界。** 天气对心境的影响被限制在 ±0.12；任何单一因素都不允许“决定”一个人。
+6. **不诊断、不替代。** 这是模拟与交互设计工具，不是心理评估、医疗建议或情感陪伴的替代品。
+
+---
+
+## 局限
+
+- 评价层 v0.1 使用**词典启发式**，只能作为离线基线；正式使用应接入结构化评价或 LLM，并保留审计字段。
+- 内分泌是**相对单位**，不是血液浓度；参数是文献先验与工程估计的混合，不能用于医学推断。
+- 情绪半衰期、心境时间常数等是**可调参数**，不是普遍常数；个体差异远大于均值。
+- 天气效应在文献中平均很小、个体差异很大；本系统刻意保守，但仍可能让用户觉得“被代表”。
+- 记忆检索的嵌入是**哈希 n-gram**，只保证可复现，不保证语义质量；生产环境应替换为真实嵌入。
+- 没有做用户研究，也没有与临床量表对照。不要用它给真实的人打分。
+
+伦理与安全边界见 [docs/ROADMAP.md](docs/ROADMAP.md) 与 [docs/RESEARCH.md](docs/RESEARCH.md)。
+
+---
+
+## 项目结构
+
+```text
+src/thymos/
+  types.py        数据模型（Appraisal / Emotion / MemoryItem / EnvironmentState）
+  forgetting.py   FSRS 曲线、稳定度更新、Ebbinghaus 数据
+  retrieval.py    ACT-R 激活、情境相似度、心境一致性
+  appraisal.py    OCC 规则、文本启发式评价
+  affect.py       快情绪 / 慢心境 / 压力 / 适应负荷
+  endocrine.py    八变量池 + CRH→ACTH→皮质醇级联 + 昼夜节律
+  environment.py  太阳高度、昼长、季节、天气→心境映射
+  weather.py      Open-Meteo 客户端 + 缓存 + 合成天气
+  memory.py       痕迹存储 + 稀疏关联图
+  engine.py       编排、持久化、巩固、快照
+  api.py          标准库 HTTP API
+  dashboard.html  零依赖可视化面板
+  cli.py          命令行
+experiments/      五个可复现实验
+tests/            67 项测试
+docs/             研究、设计、实验、命名、路线图
+```
+
+---
+
+## 名字
+
+**Thymos**（θυμός）在柏拉图那里指“血气、激情、精神”，是理性与欲望之间的第三种力量；中文名 **心潮** 取“心绪如潮，有涨有落”。记忆会褪色，情绪会退潮，但系统保留它们如何互相塑造的痕迹。
+
+`thymos` 这个名字在开源世界已有若干占用（一个操作系统、一个 Agent 运行时、一个情绪守护进程），因此本仓库与发行包使用 **`thymos-engine`**，Python 导入名仍是 `thymos`。命名调研与备选方案见 [docs/NAMING.md](docs/NAMING.md)。
+
+---
+
+## 路线图
+
+- **v0.1（当前）** 本地实验版：核心引擎、CLI、面板、67 项测试、5 个实验。
+- **v0.2** 评价适配器（LLM / 结构化输入）、真实嵌入后端、SQLite 存储、导入导出。
+- **v0.3** MCP Server 与 Agent 框架适配（Letta / LangGraph / 自建循环）。
+- **v0.4** 参数拟合工具、个体化校准、更多环境变量（空气质量、噪声、社交密度）。
+- **v1.0** 开放基准、社区治理、稳定 API、隐私与安全审计。
+
+详见 [docs/ROADMAP.md](docs/ROADMAP.md)。
+
+---
+
+## 参与
+
+欢迎 Issue、实验复现和参数批评。请先读 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
+
+如果这个项目让你想到某个更好的模型，请直接开 Issue 拆它——**可证伪比好看重要**。
+
+## 许可
+
+MIT License。见 [LICENSE](LICENSE)。

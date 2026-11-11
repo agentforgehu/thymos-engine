@@ -1,0 +1,48 @@
+{
+  "retention_models": {
+    "data_points": 7,
+    "exponential": {
+      "rmse": 0.0567,
+      "asymptote": 0.3,
+      "tau_hours": 0.43
+    },
+    "stretched": {
+      "rmse": 0.0225,
+      "asymptote": 0.2,
+      "tau_hours": 0.88,
+      "beta": 0.2
+    },
+    "fsrs": {
+      "rmse": 0.1896,
+      "stability_days": 0.01
+    }
+  },
+  "spacing": {
+    "massed_stability_days": 1.214,
+    "spaced_stability_days": 2.827,
+    "ratio": 2.33,
+    "retention_day30_massed": 0.384,
+    "retention_day30_spaced": 0.655
+  },
+  "stress": {
+    "peak_cortisol": 0.799,
+    "peak_minute": 70,
+    "min_retrieval_gain": 0.759,
+    "neutral_stability_days": 0.748,
+    "emotional_stability_days": 2.805,
+    "emotional_advantage": 3.75
+  },
+  "weather": {
+    "mean_abs_difference": 0.0119,
+    "max_abs_difference": 0.028,
+    "corr_with_temperature": 0.208,
+    "rainy_days": 4,
+    "final_mood_base": -0.046,
+    "final_mood_sensitive": -0.041
+  },
+  "emotional_forgetting": {
+    "neutral_half_life_days": 9.56,
+    "mild_half_life_days": 15.75,
+    "intense_half_life_days": 35.87
+  }
+}
