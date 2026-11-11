@@ -11,11 +11,11 @@
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.1.1%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.1.2%20alpha-f59e0b)
 
 </div>
 
-> **状态：v0.1.1 本地实验版。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学沙盒：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，观察它们如何互相拉扯。API 仍可能变化。
+> **状态：v0.1.2 本地实验版。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学沙盒：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，观察它们如何互相拉扯。API 仍可能变化。
 
 ---
 
@@ -172,11 +172,15 @@ python examples/llm_chat.py --provider deepseek
 # Ollama（先 ollama serve，并 pull 一个模型）
 python examples/llm_chat.py --provider ollama --model qwen2.5:7b
 
+# 中文语义召回：用 Ollama 的 bge-m3 替换默认哈希 n-gram
+ollama pull bge-m3
+python examples/llm_chat.py --provider ollama --model qwen2.5:7b --embedding ollama --embedding-model bge-m3
+
 # 不配置 LLM 也能看完整流程的脚本化演示
 python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 ```
 
-它默认只把“用户事实”写回记忆，不保存每条助手回复；也不把注入 Top-k 当成复习（要复习加 `--review`）。
+它默认只把“用户事实”写回记忆，不保存每条助手回复；也不把注入 Top-k 当成复习（要复习加 `--review`）。默认 embedding 是零依赖哈希；换 `--embedding ollama` 后，旧状态会在首次 `recall` 时自动重算向量，不需要手工迁移。
 
 ---
 
@@ -207,7 +211,7 @@ python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 | Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
 | Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
 | ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
-| **Thymos** | **痕迹 + 关联图 + 图式** | **FSRS 曲线** | **快情绪 + 慢心境** | **8 变量 HPA** | **天气/光照/季节** | **是，73 项测试 + 5 个实验** |
+| **Thymos** | **痕迹 + 关联图 + 图式** | **FSRS 曲线** | **快情绪 + 慢心境** | **8 变量 HPA** | **天气/光照/季节** | **是，80 项测试 + 5 个实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
 
@@ -219,6 +223,7 @@ Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动
 
 ```bash
 python experiments/run_experiments.py
+python experiments/retrieval_benchmark.py --embedding hash
 ```
 
 指标写入 [`docs/experiments.json`](docs/experiments.json)，图写入 [`docs/figures/`](docs/figures/)。
@@ -230,6 +235,7 @@ python experiments/run_experiments.py
 | 急性应激 | 皮质醇峰值在应激后 **70 分钟**；提取增益最低降至 **0.759** |
 | 天气耦合 | 30 天心境平均绝对差 **0.012**，最大 **0.028**（效应刻意保持很小） |
 | 情绪记忆 | 半衰期：中性 **9.6 天** / 轻度 **15.8 天** / 高唤醒 **35.9 天** |
+| 中文 embedding 检索 | 12 条基线：hash recall@1 **0.417** / recall@3 **0.750** / MRR **0.572**；可用 `--embedding ollama` 对比 bge-m3 |
 
 ![间隔效应](docs/figures/fig2_spacing.png)
 
@@ -274,7 +280,7 @@ python -m thymos demo
 - 情绪半衰期、心境时间常数等是**可调参数**，不是普遍常数；个体差异远大于均值。
 - 天气效应在文献中平均很小、个体差异很大；本系统刻意保守，但仍可能让用户觉得“被代表”。
 - 记忆检索的嵌入是**哈希 n-gram**，只保证可复现，不保证语义质量；生产环境应替换为真实嵌入。
-- **中文召回一般**：哈希 n-gram 对同义改写、跨句指代和长距离语义的召回有限；中文场景应替换为多语言/中文 embedding，或加一层 LLM 查询改写。
+- **中文召回一般**：哈希 n-gram 对同义改写、跨句指代和长距离语义的召回有限；12 条中文基线为 recall@1 0.417 / recall@3 0.750 / MRR 0.572（`experiments/retrieval_benchmark.py`）。中文场景建议加 `--embedding ollama --embedding-model bge-m3`，或换成自己的 embedding。
 - **参数还没调过**：默认值是文献先验与工程估计的混合，没有做全局敏感性分析、参数恢复或个体化校准；不要把它当成“已经调好的最优参数”。
 - 没有做用户研究，也没有与临床量表对照。不要用它给真实的人打分。
 
@@ -300,8 +306,8 @@ src/thymos/
   api.py          标准库 HTTP API
   dashboard.html  零依赖可视化面板
   cli.py          命令行
-experiments/      五个可复现实验
-tests/            73 项测试
+experiments/      五个实验 + 中文检索基线
+tests/            80 项测试
 docs/             教程、研究、设计、实验、命名、路线图
 ```
 
@@ -317,7 +323,7 @@ docs/             教程、研究、设计、实验、命名、路线图
 
 ## 路线图
 
-- **v0.1.1（当前）** 本地实验版：核心引擎、CLI、面板、`AgentMemory` 接入层、73 项测试、5 个实验。
+- **v0.1.2（当前）** 本地实验版：核心引擎、CLI、面板、`AgentMemory` 接入层、80 项测试、5 个实验。
 - **v0.2** 评价适配器（LLM / 结构化输入）、真实嵌入后端、SQLite 存储、导入导出。
 - **v0.3** MCP Server 与 Agent 框架适配（Letta / LangGraph / 自建循环）。
 - **v0.4** 参数拟合工具、个体化校准、更多环境变量（空气质量、噪声、社交密度）。

@@ -50,6 +50,31 @@ def test_render_context_is_plain_text_and_disclaimed(engine):
     assert "用户喜欢在周末爬山" in text
 
 
+def test_switching_embedder_reembeds_existing_memories(tmp_path):
+    state = tmp_path / "state.json"
+    first = Thymos(
+        PROFILE,
+        ThymosConfig(offline=True, seed=11),
+        state_path=str(state),
+        now=START,
+        embedder=lambda text: [1.0, 0.0],
+    )
+    first.perceive("用户喜欢在周末爬山", importance=0.8, tags=["偏好"])
+    first.save()
+
+    second = Thymos(
+        PROFILE,
+        ThymosConfig(offline=True, seed=11),
+        state_path=str(state),
+        now=START + 3600,
+        embedder=lambda text: [1.0, 0.0, 0.0],
+    )
+    hits = second.recall("爬山", top_k=1)
+    assert hits
+    assert all(len(item.embedding) == 3 for item in second.store)
+    assert any(event["kind"] == "reembed" for event in second.events)
+
+
 def test_forgetting_reduces_retrievability(engine):
     item = engine.perceive("会被遗忘的事件", importance=0.3)
     fresh = retrievability(item.age_days(engine.now), item.stability)

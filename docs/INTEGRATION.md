@@ -204,6 +204,16 @@ elif len(text) < 12:
 
 ### 4.1 嵌入
 
+内置的 Ollama 后端（推荐中文用 `bge-m3`）：
+
+```python
+from thymos import OllamaEmbedder, Thymos
+
+mind = Thymos(embedder=OllamaEmbedder(model="bge-m3"))
+```
+
+也可以接任何 `str -> list[float]` 的函数：
+
 ```python
 from thymos import Thymos
 from sentence_transformers import SentenceTransformer
@@ -216,7 +226,7 @@ def embed(text: str) -> list[float]:
 mind = Thymos(embedder=embed)
 ```
 
-要求：同一文本稳定、维度一致、返回 list[float]。换嵌入后旧记忆的向量不兼容，需要重新编码或 migration。
+要求：同一文本稳定、维度一致、返回 list[float]。换嵌入后旧向量维度不兼容，引擎会在首次 `recall`/`perceive` 时自动用新 embedder 重算全部记忆（事件日志里会有 `reembed`）；状态很大时建议先备份或 `--fresh`。
 
 ### 4.2 评价
 

@@ -31,7 +31,7 @@
 
 | 阶段 | 目标 | 时间 | 退出条件 |
 |---|---|---|---|
-| **P0 本地实验** | 核心引擎、CLI、面板、测试、实验 | 已完成 | 73 项测试通过；5 个实验可复现 |
+| **P0 本地实验** | 核心引擎、CLI、面板、测试、实验 | 已完成 | 80 项测试通过；5 个实验可复现 |
 | **P1 科学验证** | 参数恢复、敏感性、消融、真实日志 | 4–8 周 | 关键参数可识别；消融结果公开 |
 | **P2 开源发布** | 仓库、CI、文档、示例、v0.1.0 | 2–4 周 | 外部用户能在 10 分钟内跑通 |
 | **P3 集成** | LLM/Agent 适配、SQLite、真实嵌入 | 6–10 周 | 一个真实 Agent 连续运行 7 天 |
@@ -50,7 +50,7 @@
 - [x] JSON 持久化、原子写入、状态快照
 - [x] CLI：`init / demo / perceive / recall / tick / consolidate / snapshot / serve`
 - [x] 零依赖 HTTP API + 可视化面板
-- [x] 73 项测试
+- [x] 80 项测试
 - [x] 5 个可复现实验 + 图表 + 指标 JSON
 
 ### 已知缺口
@@ -172,10 +172,11 @@
 
 ### 5.2 嵌入
 
-- 抽象 `Embedder` 协议；
-- 提供：哈希（默认）、sentence-transformers、OpenAI embeddings、本地 GGUF；
-- 缓存与批量接口；
-- 维度变更的迁移策略。
+- [x] 抽象 `Embedder` 协议（`str -> list[float]`）；
+- [x] 哈希（默认）、Ollama `/api/embed`（推荐 `bge-m3`）、OpenAI-compatible `/embeddings`；
+- [ ] sentence-transformers、本地 GGUF；
+- [x] 文本级 LRU 缓存；批量接口尚未做；
+- [x] 维度变更的自动重算（首次 `recall`/`perceive`）。
 
 ### 5.3 评价
 

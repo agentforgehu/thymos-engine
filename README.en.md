@@ -11,11 +11,11 @@ A local-first, inspectable engine that couples forgetting curves, appraisal-base
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.1.1%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.1.2%20alpha-f59e0b)
 
 </div>
 
-> **Status: v0.1.1, local research sandbox.** This is not a clinically validated model of emotion, and it is not conscious. It is a set of inspectable dynamical hypotheses: what if memory, affect, hormones, sleep and weather shared one clock?
+> **Status: v0.1.2, local research sandbox.** This is not a clinically validated model of emotion, and it is not conscious. It is a set of inspectable dynamical hypotheses: what if memory, affect, hormones, sleep and weather shared one clock?
 
 ---
 
@@ -130,7 +130,7 @@ These validate **internal consistency**, not human psychology. See [docs/EXPERIM
 | Letta / MemGPT | hierarchical context | context eviction | — | — | — | partial |
 | Generative Agents | memory stream | recency decay | simple | — | — | yes |
 | ALMA / WASABI | — | — | appraisal + PAD | — | — | partial |
-| **Thymos** | **trace + graph + schema** | **FSRS curve** | **fast emotion + slow mood** | **8 pools + HPA** | **weather/light/season** | **73 tests + 5 experiments** |
+| **Thymos** | **trace + graph + schema** | **FSRS curve** | **fast emotion + slow mood** | **8 pools + HPA** | **weather/light/season** | **80 tests + 5 experiments** |
 
 Thymos does not compete on memory-recall benchmarks. It competes on **dynamical coherence, inspectability and reproducibility**.
 

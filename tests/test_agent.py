@@ -65,3 +65,17 @@ def test_questions_are_not_stored_as_preferences(memory):
 def test_reminder_questions_are_still_important(memory):
     assert estimate_importance("你能提醒我周五交材料吗？") >= 0.9
     assert memory.observe("你能提醒我周五交材料吗？") is not None
+
+
+def test_agent_memory_accepts_custom_embedder(tmp_path):
+    memory = AgentMemory(
+        str(tmp_path / "custom.json"),
+        profile=PROFILE,
+        config=ThymosConfig(offline=True, seed=3),
+        now=START,
+        embedder=lambda text: [float(len(text)), 1.0],
+    )
+    item = memory.observe("我喜欢在周末爬山", importance=0.9)
+    assert item is not None
+    assert len(item.embedding) == 2
+    assert "爬山" in memory.context("爬山", top_k=1)

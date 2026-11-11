@@ -1,6 +1,6 @@
 # 实验报告：五个可复现实验
 
-> 版本：0.1.0
+> 版本：0.1.2（五个主实验自 0.1.0 起未变；附录 A 为 0.1.2 新增）
 >
 > 运行：`python experiments/run_experiments.py`
 >
@@ -279,3 +279,27 @@ python experiments/run_experiments.py
 ## 9. 一句话总结
 
 > 这些实验证明 Thymos **按设计工作**，而不是证明它**理解人类**。前者是工程，后者需要用户研究与独立验证。
+
+---
+
+## 附录 A：中文 embedding 检索基线
+
+这是一个独立的 12 条中文小基准，只按余弦相似度排序，**不经过** Thymos 的激活、心境和关联扩散，因此它测的是 embedding 本身，不是完整检索器。
+
+```bash
+python experiments/retrieval_benchmark.py --embedding hash
+# 有 Ollama 时：
+ollama pull bge-m3
+python experiments/retrieval_benchmark.py --embedding ollama --model bge-m3
+```
+
+当前零依赖哈希基线：
+
+| 指标 | 值 |
+|---|---:|
+| recall@1 | 0.417 |
+| recall@3 | 0.750 |
+| recall@5 | 0.750 |
+| MRR | 0.572 |
+
+失败的典型是 `coffee`（“平时喝什么咖啡” vs “冰美式”）、`work`（“工作上的事” vs “项目评审”）和 `peanut`（“坚果” vs “花生”）：没有共享字符，哈希 n-gram 无法建立同义关系。这正是 `--embedding ollama --embedding-model bge-m3` 要解决的问题；换 embedding 后请用同一脚本重跑，而不是凭感觉判断。

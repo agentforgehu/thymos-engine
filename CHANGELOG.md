@@ -51,17 +51,24 @@
 - 参数多为工程估计，未做全局敏感性分析/用户研究。
 - 单用户、JSON 存储；没有 SQLite/加密/MCP。
 
-## [Unreleased]
+## [0.1.2] — 2026-11-12
+
+真实 LLM 接入与中文召回补强。
 
 ### Added
 
 - `examples/llm_chat.py`：零依赖的 DeepSeek / Ollama 聊天示例，支持交互与 30 天演示。
 - 示例默认只记用户事实、不保存助手回复；默认不把注入 Top-k 当成复习。
+- `OllamaEmbedder` / `OpenAIEmbedder`：可选 HTTP embedding 后端，中文推荐 Ollama `bge-m3`。
+- `AgentMemory(embedder=...)`；切换 embedding 后首次 `recall` 自动重算旧记忆向量。
+- `experiments/retrieval_benchmark.py`：12 条中文 embedding 检索基线（hash 当前 recall@1 0.417 / recall@3 0.750 / MRR 0.572）。
 
 ### Fixed
 
 - `estimate_importance()` 不再把“我不吃什么？”这类问句误判为偏好事实；带“提醒/答应/截止”的请求仍保留高重要性。
-- 2 项问句回归测试；当前总计 73 项。
+- 2 项问句回归测试；新增 7 项 embedding/迁移测试，当前总计 80 项。
+
+## [Unreleased]
 
 ### Planned
 

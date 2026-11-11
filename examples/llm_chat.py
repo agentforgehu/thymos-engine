@@ -46,7 +46,7 @@ from typing import Any
 # Allow running from a source checkout without installing the package.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
-from thymos import AgentMemory, Profile, ThymosConfig
+from thymos import AgentMemory, EmbeddingError, OllamaEmbedder, Profile, ThymosConfig
 from thymos.types import MemoryItem
 
 DEFAULT_STATE = ".thymos/llm_chat.json"
@@ -251,6 +251,18 @@ def build_client(args: argparse.Namespace) -> DeepSeekClient | OllamaClient:
     )
 
 
+def build_embedder(args: argparse.Namespace) -> OllamaEmbedder | None:
+    """Return ``None`` for the deterministic hash embedder, or Ollama bge-m3."""
+    if args.embedding == "hash":
+        return None
+    base_url = args.embedding_url or os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+    return OllamaEmbedder(
+        base_url=base_url,
+        model=args.embedding_model,
+        timeout=args.timeout,
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Conversation loop
 # --------------------------------------------------------------------------- #
@@ -396,7 +408,7 @@ def run_interactive(
             break
         try:
             reply, item = run_turn(memory, client, history, user_text, args)
-        except LLMError as exc:
+        except (LLMError, EmbeddingError) as exc:
             print(f"\n[LLM 错误] {exc}")
             continue
         print(f"助手：{reply}")
@@ -434,6 +446,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--top-k", type=int, default=4, help="注入几条记忆")
     parser.add_argument("--min-score", type=float, default=0.30, help="低于此分数的记忆不注入")
     parser.add_argument(
+        "--embedding",
+        choices=["hash", "ollama"],
+        default="hash",
+        help="hash: 零依赖字符 n-gram；ollama: 中文语义 embedding",
+    )
+    parser.add_argument(
+        "--embedding-model",
+        default="bge-m3",
+        help="Ollama embedding 模型（推荐 bge-m3）",
+    )
+    parser.add_argument(
+        "--embedding-url",
+        default=None,
+        help="Ollama embedding 地址；默认沿用 OLLAMA_HOST",
+    )
+    parser.add_argument(
         "--review",
         action="store_true",
         help="把注入的 Top-k 视为一次复习（会提高稳定度；默认关闭）",
@@ -467,23 +495,41 @@ def main(argv: list[str] | None = None) -> int:
     except LLMError as exc:
         print(f"[配置错误] {exc}", file=sys.stderr)
         return 2
+    try:
+        embedder = build_embedder(args)
+    except EmbeddingError as exc:
+        print(f"[配置错误] {exc}", file=sys.stderr)
+        return 2
 
     memory = AgentMemory(
         str(state_path),
         profile=Profile(name=args.user_name, location_name=args.location),
         config=ThymosConfig(offline=True, seed=7),
+        embedder=embedder,
     )
 
-    print(f"Provider: {client.name}  |  model: {client.model}  |  base: {client.base_url}")
+    embedding_label = "hash" if args.embedding == "hash" else f"ollama:{args.embedding_model}"
+    print(
+        f"Provider: {client.name}  |  model: {client.model}  |  "
+        f"embedding: {embedding_label}  |  base: {client.base_url}"
+    )
+    if args.embedding != "hash":
+        print("提示：首次 recall 会自动重算旧记忆向量；状态很大时建议先 --fresh。")
     try:
         if args.demo:
             run_demo(memory, client, args)
         else:
             run_interactive(memory, client, args)
-    except LLMError as exc:
+    except (LLMError, EmbeddingError) as exc:
         print(f"\n[LLM 错误] {exc}", file=sys.stderr)
         if client.name == "ollama":
             print("提示：确认 `ollama serve` 已启动，且模型已 `ollama pull`。", file=sys.stderr)
+        if isinstance(exc, EmbeddingError):
+            print(
+                "提示：embedding 模型需要先 `ollama pull bge-m3`；"
+                "也可以先加 --embedding hash 跑通流程。",
+                file=sys.stderr,
+            )
         memory.save()
         return 1
     return 0

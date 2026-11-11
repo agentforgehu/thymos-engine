@@ -119,6 +119,11 @@ python examples/llm_chat.py --provider deepseek
 ollama serve
 ollama pull qwen2.5:7b
 python examples/llm_chat.py --provider ollama --model qwen2.5:7b
+
+# 中文语义召回：用 bge-m3 替换默认哈希 n-gram
+ollama pull bge-m3
+python examples/llm_chat.py --provider ollama --model qwen2.5:7b `
+  --embedding ollama --embedding-model bge-m3
 ```
 
 它做了三件关键的事：
@@ -126,6 +131,8 @@ python examples/llm_chat.py --provider ollama --model qwen2.5:7b
 - 回复前用 `memory.context(user_text)` 取 Top-k 记忆 + 当前心境；
 - 回复后只用 `memory.observe(user_text)` 记用户事实，不保存每条助手回复；
 - 默认 `review=False`：把记忆注入 prompt 不等于用户复习了它；要显式做检索练习时加 `--review`。
+
+默认 embedding 是零依赖哈希，中文同义改写会吃亏；`--embedding ollama` 会调用 Ollama 的 `/api/embed`，推荐 `bge-m3`。换 embedding 后，旧状态首次 `recall` 会自动重算向量，不需要手工迁移。
 
 `--demo` 会跑一个 30 天演示，先存三件事，再清空对话历史，只让 Thymos 提供记忆来回答。
 

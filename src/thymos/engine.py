@@ -86,6 +86,25 @@ class Thymos:
         local = local_datetime(self.now, self.profile.timezone)
         return local.hour + local.minute / 60.0
 
+    def _ensure_embedding_dim(self, dim: int) -> None:
+        """Re-embed the store if a new embedder has a different dimension.
+
+        Switching from the hash embedder to a real model (or changing models)
+        otherwise makes every cosine similarity silently return 0 because the
+        vectors have different lengths.  Re-embedding is cheap for a personal
+        memory file and keeps the state usable after the switch.
+        """
+        if dim <= 0:
+            return
+        items = list(self.store)
+        if not items:
+            return
+        if all(len(item.embedding) == dim for item in items):
+            return
+        for item in items:
+            item.embedding = self.embedder(item.content)
+        self._log("reembed", {"count": len(items), "dim": dim})
+
     def _circadian(self) -> dict[str, float]:
         return circadian_factors(self.local_hour(), self.profile.chronotype)
 
@@ -207,6 +226,7 @@ class Thymos:
         )
 
         embedding = self.embedder(content)
+        self._ensure_embedding_dim(len(embedding))
         ctx = self._make_context()
         if context:
             ctx.update(context)
@@ -256,6 +276,7 @@ class Thymos:
         self.refresh_environment()
         query = (query or "").strip()
         embedding = self.embedder(query)
+        self._ensure_embedding_dim(len(embedding))
         results = retrieve(
             self.store,
             now=self.now,
@@ -380,6 +401,7 @@ class Thymos:
             mean_arousal = sum(i.arousal for i in items) / len(items)
             content = f"关于「{tag}」的反复经验：{len(items)} 次相关事件，整体感受{'偏正面' if mean_valence > 0.1 else '偏负面' if mean_valence < -0.1 else '中性'}。"
             emb = self.embedder(content)
+            self._ensure_embedding_dim(len(emb))
             schema = MemoryItem(
                 content=content,
                 kind="semantic",
@@ -539,12 +561,26 @@ class Thymos:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], *, state_path: str | None = None, offline: bool | None = None) -> "Thymos":
+    def from_dict(
+        cls,
+        data: dict[str, Any],
+        *,
+        state_path: str | None = None,
+        offline: bool | None = None,
+        embedder: Embedder | None = None,
+    ) -> "Thymos":
         profile = Profile.from_dict(data.get("profile"))
         config = ThymosConfig.from_dict(data.get("config"))
         # Do not pass state_path here: __init__ would try to load the same file
         # again and recurse.  Attach it after the object is built.
-        obj = cls(profile, config, state_path=None, now=data.get("now"), offline=offline)
+        obj = cls(
+            profile,
+            config,
+            state_path=None,
+            now=data.get("now"),
+            offline=offline,
+            embedder=embedder,
+        )
         obj.state_path = state_path
         obj.affect = AffectDynamics.from_dict(config, profile, data.get("affect"))
         obj.endocrine = EndocrineSystem.from_dict(data.get("endocrine"))
@@ -573,7 +609,7 @@ class Thymos:
             raise FileNotFoundError(target)
         with open(target, "r", encoding="utf-8") as fh:
             data = json.load(fh)
-        loaded = Thymos.from_dict(data, state_path=target)
+        loaded = Thymos.from_dict(data, state_path=target, embedder=self.embedder)
         self.__dict__.update(loaded.__dict__)
         return self
 

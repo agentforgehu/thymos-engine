@@ -20,6 +20,7 @@ import re
 from typing import Any
 
 from .config import Profile, ThymosConfig
+from .embedding import Embedder
 from .engine import Thymos
 from .mathx import clamp
 from .types import MemoryItem, RetrievalResult
@@ -85,6 +86,9 @@ class AgentMemory:
         not call a weather API unless the developer opts in.
     now:
         Fixed timestamp for reproducible tests; defaults to wall clock.
+    embedder:
+        Optional ``str -> list[float]`` function.  Defaults to the deterministic
+        hash n-gram embedder; pass ``OllamaEmbedder`` for Chinese semantics.
     """
 
     def __init__(
@@ -95,6 +99,7 @@ class AgentMemory:
         config: ThymosConfig | None = None,
         offline: bool = True,
         now: float | None = None,
+        embedder: Embedder | None = None,
     ) -> None:
         cfg = config or ThymosConfig(offline=offline)
         self.mind = Thymos(
@@ -102,6 +107,7 @@ class AgentMemory:
             cfg,
             state_path=state_path,
             now=now,
+            embedder=embedder,
         )
 
     # ------------------------------------------------------------------ read
