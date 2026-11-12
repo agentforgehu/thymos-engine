@@ -15,6 +15,34 @@
 - `README.md` 导航加入 `docs/STRATEGY.md`。
 - `docs/ROADMAP.md` 增加标签说明：项目阶段、问题优先级、科学验证不要混用。
 
+## [0.3.0] — 2026-11-13
+
+控制平面 MVP：不重写动力学内核，把外层改成“意图 → 策略 → 算子 → 预算 → 审计”。
+
+### Added
+
+- `thymos.policy`：查询意图分类（factual / technical / history / affective / social / mixed）与情绪门控；事实/技术问题关闭心境一致性，支持型问题保留。
+- `thymos.control.MemoryController`：事实、情景、图邻居、图式摘要四类算子；合并去重、硬预算渲染、`AuditTrace`。
+- `thymos.backends.MemoryBackend`：可插拔记忆后端协议，`MemoryStore` 与 `SQLiteMemoryStore` 均满足。
+- `AgentMemory.plan()`：返回 `context` + `intent` + `affect` + 算子审计；`context()` 默认走同一控制平面。
+- HTTP `/api/context`、`/api/plan`、`/api/audit`；MCP `memory_plan`；CLI `thymos plan`。
+- `docs/PRODUCT.md`：保留 / 改写 / 放弃 / 冻结清单，与 Mem0、Graphiti、Letta、MemoryBank 等项目的借/不借说明。
+- 12 项控制平面测试，总计 116 项。
+
+### Changed
+
+- `render_context(include_state=False)`：事实/技术问题不暴露“当前模拟状态”，避免情绪语气污染事实回答。
+- `recall()` 支持查询级 `mood_weight` / `emotion_weight` 覆盖，不改变全局配置默认值。
+- 引擎快照与状态文件新增 `last_audit`，重启后仍可读最近一次计划。
+- 包描述与 README 从“情绪记忆引擎”更新为“Agent 的记忆控制平面”。
+
+### Known limits
+
+- `mood_weight` 的 0 / 0.15 / 0.35 是产品默认值，不是拟合结果；敏感性分析未做。
+- 图算子只做局部邻居，不做 PPR；摘要算子读取已有语义记忆，不现场生成。
+- `MemoryBackend` 只有内建 JSON/SQLite 实现；Mem0/Graphiti 参考适配器在 0.3.x。
+- 外部 benchmark（LongMemEval/LoCoMo）尚未跑通，当前证据仍是自建 held-out 与本地长测。
+
 ## [0.2.0] — 2026-11-13
 
 P0–P2 可靠性升级：把“能跑”推进到“能被检验、能被纠正、能被嵌入”。

@@ -9,6 +9,7 @@
 | 工具 | 用途 | 是否写状态 |
 |---|---|---|
 | `memory_context` | 取一段带信任边界的记忆上下文，供本轮 prompt 使用 | 否 |
+| `memory_plan` | 返回意图、情绪门控、算子、预算与 `selected_ids` 的完整审计 | 否 |
 | `memory_observe` | 把值得记住的用户话写入情景记忆和事实层 | 是 |
 | `memory_recall` | 返回带分数、可提取度、分项打分的检索结果 | 否 |
 | `memory_correct_fact` | 纠正错误/过时事实 | 是 |
@@ -105,4 +106,4 @@ MCP 适合桌面 Agent、IDE Agent、单用户 bot；HTTP API 适合本地面板
 python -m pytest -q tests/test_mcp.py
 ```
 
-测试覆盖 `initialize`、`tools/list`、`memory_observe`、`memory_context` 和 stdio 往返。真实宿主接入后，建议先跑 `experiments/heldout_eval.py --llm mock` 验证管线，再换真实模型。
+测试覆盖 `initialize`、`tools/list`、`memory_observe`、`memory_context`、`memory_plan` 和 stdio 往返。真实宿主接入后，建议先跑 `experiments/heldout_eval.py --llm mock` 验证管线，再换真实模型。

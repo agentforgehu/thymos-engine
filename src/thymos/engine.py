@@ -12,6 +12,7 @@ from typing import Any, Callable
 
 from .affect import AffectDynamics, EnvironmentEffects
 from .appraisal import appraise, estimate_appraisal
+from .backends import MemoryBackend
 from .config import Profile, ThymosConfig
 from .embedding import make_embedder
 from .endocrine import EndocrineSystem, circadian_factors
@@ -63,7 +64,7 @@ class Thymos:
         now: float | None = None,
         offline: bool | None = None,
         embedder: Embedder | None = None,
-        store: MemoryStore | None = None,
+        store: MemoryBackend | None = None,
     ) -> None:
         self.config = config or ThymosConfig()
         self.profile = profile or Profile()
@@ -72,6 +73,8 @@ class Thymos:
         self.rng = random.Random(self.config.seed)
         self.embedder = embedder or make_embedder(self.config.embedding_dim)
         self.store = store if store is not None else MemoryStore()
+        self._controller = None
+        self.last_audit: dict[str, Any] = {}
         self.facts = FactStore()
         self.affect = AffectDynamics(self.config, self.profile)
         self.endocrine = EndocrineSystem()
@@ -86,6 +89,15 @@ class Thymos:
 
         if state_path and os.path.exists(state_path):
             self.load(state_path)
+
+    @property
+    def controller(self):
+        """Lazily construct the control plane (avoids an import cycle)."""
+        if self._controller is None:
+            from .control import MemoryController
+
+            self._controller = MemoryController(self)
+        return self._controller
 
     # ------------------------------------------------------------------ time
     def local_hour(self) -> float:
@@ -285,8 +297,21 @@ class Thymos:
         return item
 
     # ----------------------------------------------------------------- recall
-    def recall(self, query: str, *, top_k: int = 5, update: bool = True) -> list[RetrievalResult]:
-        """Retrieve memories and (by default) treat the top hits as a review."""
+    def recall(
+        self,
+        query: str,
+        *,
+        top_k: int = 5,
+        update: bool = True,
+        mood_weight: float | None = None,
+        emotion_weight: float | None = None,
+    ) -> list[RetrievalResult]:
+        """Retrieve memories and (by default) treat the top hits as a review.
+
+        ``mood_weight`` and ``emotion_weight`` override the global config for
+        this query.  The control plane uses them to suppress mood congruence
+        for factual/technical queries while keeping it for supportive ones.
+        """
         self.refresh_environment()
         query = (query or "").strip()
         embedding = self.embedder(query)
@@ -302,6 +327,8 @@ class Thymos:
             endocrine=self.endocrine,
             top_k=top_k,
             query_text=query,
+            mood_weight=mood_weight,
+            emotion_weight=emotion_weight,
         )
         reviewed = 0
         if update:
@@ -333,6 +360,12 @@ class Thymos:
             },
         )
         return results
+
+    def plan_context(self, query: str, **kwargs: Any):
+        """Plan a budgeted context block and update the last audit trace."""
+        plan = self.controller.plan(query, **kwargs)
+        self.last_audit = plan.audit.to_dict()
+        return plan
 
     # ------------------------------------------------------------ reappraise
     def reappraise(
@@ -479,10 +512,15 @@ class Thymos:
         hits: list[RetrievalResult] | None = None,
         *,
         include_endocrine: bool = False,
+        include_state: bool = True,
         query: str = "",
         max_chars: int | None = None,
     ) -> str:
         """Render facts, retrieved memories and affect as a compact prompt block.
+
+        ``include_state=False`` is used by the control plane for factual and
+        technical queries: the model still gets facts and memories, but no
+        affect block that could tint a neutral answer.
 
         ``max_chars`` is a hard character budget, not a hint.  It exists because
         a local model often has a much smaller context than the memory store;
@@ -533,22 +571,25 @@ class Thymos:
         if len(memory_lines) == 1:
             memory_lines.append("（没有找到相关记忆。不要编造。）")
 
-        s = self.affect.state
-        state_lines = [
-            "## 当前模拟状态",
-            f"心境 {s.mood_valence:+.2f}；压力 {s.stress:.2f}；"
-            f"疲劳 {s.fatigue:.2f}；主导情绪 {s.dominant_emotion}。",
-            "这些是模拟状态，不是真实生理感受；只用于保持语气与叙事一致。",
-        ]
-        if include_endocrine:
-            levels = ", ".join(f"{k}={v:.2f}" for k, v in self.endocrine.levels.items())
-            state_lines.append(f"相对内分泌水平：{levels}（0–1 相对单位，非医学指标）")
+        state_lines: list[str] = []
+        if include_state:
+            s = self.affect.state
+            state_lines = [
+                "## 当前模拟状态",
+                f"心境 {s.mood_valence:+.2f}；压力 {s.stress:.2f}；"
+                f"疲劳 {s.fatigue:.2f}；主导情绪 {s.dominant_emotion}。",
+                "这些是模拟状态，不是真实生理感受；只用于保持语气与叙事一致。",
+            ]
+            if include_endocrine:
+                levels = ", ".join(f"{k}={v:.2f}" for k, v in self.endocrine.levels.items())
+                state_lines.append(f"相对内分泌水平：{levels}（0–1 相对单位，非医学指标）")
 
         if not max_chars:
             parts = ([fact_block] if fact_block else []) + [
                 "\n".join(memory_lines),
-                "\n".join(state_lines),
             ]
+            if state_lines:
+                parts.append("\n".join(state_lines))
             text = "\n\n".join(parts)
             self._last_context_stats = {
                 "chars": len(text),
@@ -556,6 +597,7 @@ class Thymos:
                 "memories": len(seen),
                 "has_facts": bool(fact_block),
                 "budget_chars": None,
+                "include_state": include_state,
             }
             return text
 
@@ -565,7 +607,8 @@ class Thymos:
         if fact_block:
             parts.append(fact_block)
         used = sum(len(part) + 2 for part in parts)
-        remaining = max(0, max_chars - used - len("\n".join(state_lines)) - 2)
+        state_size = len("\n".join(state_lines)) + 2 if state_lines else 0
+        remaining = max(0, max_chars - used - state_size)
         selected = memory_lines[:1]
         for line in memory_lines[1:]:
             if len(line) + 1 > remaining:
@@ -575,7 +618,8 @@ class Thymos:
         if len(selected) == 1 and remaining > 20:
             selected.append("（预算不足，未展开情景记忆。）")
         parts.append("\n".join(selected))
-        parts.append("\n".join(state_lines))
+        if state_lines:
+            parts.append("\n".join(state_lines))
         text = "\n\n".join(parts)
         if len(text) > max_chars:
             text = text[: max(0, max_chars)].rstrip()
@@ -585,6 +629,7 @@ class Thymos:
             "memories": len(seen),
             "has_facts": bool(fact_block),
             "budget_chars": max_chars,
+            "include_state": include_state,
         }
         return text
 
@@ -622,6 +667,7 @@ class Thymos:
             "facts": self.facts.to_list(),
             "memory": self.stats(),
             "last_context": self._last_context_stats,
+            "last_audit": self.last_audit,
             "top_memories": self.top_memories(6),
             "events": self.events[-20:],
             "config": {
@@ -648,6 +694,7 @@ class Thymos:
             "environment": self.environment.to_dict(),
             "memory": self.store.to_list(),
             "facts": self.facts.to_list(),
+            "last_audit": self.last_audit,
             "events": self.events[-200:],
             "tick_count": self._tick_count,
         }
@@ -660,7 +707,7 @@ class Thymos:
         state_path: str | None = None,
         offline: bool | None = None,
         embedder: Embedder | None = None,
-        store: MemoryStore | None = None,
+        store: MemoryBackend | None = None,
     ) -> "Thymos":
         profile = Profile.from_dict(data.get("profile"))
         config = ThymosConfig.from_dict(data.get("config"))
@@ -688,6 +735,7 @@ class Thymos:
         obj._effects = environment_effects(obj.environment, profile)
         obj.events = list(data.get("events") or [])
         obj._tick_count = int(data.get("tick_count") or 0)
+        obj.last_audit = dict(data.get("last_audit") or {})
         return obj
 
     def save(self, path: str | None = None) -> str:

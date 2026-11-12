@@ -49,6 +49,17 @@ TOOLS = [
         ["user_text"],
     ),
     _tool(
+        "memory_plan",
+        "Explain the control-plane plan: intent, affect gate, operators, budget, selected ids.",
+        {
+            "user_text": {"type": "string"},
+            "top_k": {"type": "integer", "minimum": 1, "maximum": 20, "default": 5},
+            "max_chars": {"type": "integer", "minimum": 100, "maximum": 4000},
+            "max_tokens": {"type": "integer", "minimum": 50, "maximum": 4000},
+        },
+        ["user_text"],
+    ),
+    _tool(
         "memory_observe",
         "Store a user turn if it clears the importance threshold.",
         {
@@ -105,7 +116,7 @@ class MCPServer:
                 {
                     "protocolVersion": PROTOCOL_VERSION,
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "thymos-memory", "version": "0.2.0"},
+                    "serverInfo": {"name": "thymos-memory", "version": "0.3.0"},
                 },
             )
         if method in ("notifications/initialized", "initialized"):
@@ -137,6 +148,17 @@ class MCPServer:
                 top_k=int(args.get("top_k", 5)),
                 max_chars=args.get("max_chars"),
                 max_tokens=args.get("max_tokens"),
+            )
+        if name == "memory_plan":
+            return json.dumps(
+                self.memory.plan(
+                    str(args.get("user_text", "")),
+                    top_k=int(args.get("top_k", 5)),
+                    max_chars=args.get("max_chars"),
+                    max_tokens=args.get("max_tokens"),
+                ),
+                ensure_ascii=False,
+                indent=2,
             )
         if name == "memory_observe":
             item = self.memory.observe(

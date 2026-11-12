@@ -57,6 +57,12 @@ def build_parser() -> argparse.ArgumentParser:
     recall.add_argument("query")
     recall.add_argument("--top-k", type=int, default=5)
 
+    plan = sub.add_parser("plan", help="按控制平面生成上下文与审计轨迹")
+    plan.add_argument("query")
+    plan.add_argument("--top-k", type=int, default=5)
+    plan.add_argument("--max-chars", type=int, default=1200)
+    plan.add_argument("--json", action="store_true", dest="as_json", help="输出完整计划 JSON")
+
     tick = sub.add_parser("tick", help="推进模拟时间")
     tick.add_argument("--hours", type=float, default=1.0)
 
@@ -222,6 +228,30 @@ def cmd_recall(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_plan(args: argparse.Namespace) -> int:
+    engine = load_engine(args)
+    plan = engine.plan_context(
+        args.query,
+        top_k=args.top_k,
+        max_chars=args.max_chars,
+    )
+    if args.as_json:
+        print(json.dumps(plan.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(plan.text)
+        print("\n--- 审计 ---")
+        print(
+            f"意图 {plan.intent.label} ({plan.intent.confidence:.2f})；"
+            f"情绪权重 {plan.affect.mood_weight:.2f}；"
+            f"状态块 {'开' if plan.affect.include_state else '关'}；"
+            f"{plan.audit.chars} 字符 / {plan.audit.tokens} tokens"
+        )
+        for op in plan.audit.operators:
+            print(f"  {op.name:<18} {op.status:<8} 选中 {op.selected}")
+    engine.save()
+    return 0
+
+
 def cmd_tick(args: argparse.Namespace) -> int:
     engine = load_engine(args)
     engine.tick(args.hours * 3600)
@@ -281,6 +311,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_perceive(args)
     if args.command == "recall":
         return cmd_recall(args)
+    if args.command == "plan":
+        return cmd_plan(args)
     if args.command == "tick":
         return cmd_tick(args)
     if args.command == "consolidate":

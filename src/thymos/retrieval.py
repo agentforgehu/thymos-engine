@@ -111,11 +111,19 @@ def retrieve(
     endocrine=None,
     top_k: int = 5,
     query_text: str | None = None,
+    mood_weight: float | None = None,
+    emotion_weight: float | None = None,
 ) -> list[RetrievalResult]:
     query_embedding = query_embedding or []
     query_tags = query_tags or []
     mood = affect.mood_valence if affect else 0.0
     retrieval_gain = endocrine.retrieval_gain(config) if endocrine else 1.0
+    mood_weight = (
+        config.mood_congruence_weight if mood_weight is None else max(0.0, min(1.0, float(mood_weight)))
+    )
+    emotion_weight = (
+        config.emotion_boost_weight if emotion_weight is None else max(0.0, min(1.0, float(emotion_weight)))
+    )
     results: list[RetrievalResult] = []
 
     for memory in store.all():
@@ -147,8 +155,8 @@ def retrieve(
         activation = (
             config.activation_weight * (base / 6.0)
             + 1.10 * ctx
-            + config.mood_congruence_weight * (mood_congruence - 0.5) * 2.0
-            + config.emotion_boost_weight * emotional
+            + mood_weight * (mood_congruence - 0.5) * 2.0
+            + emotion_weight * emotional
             + 0.25 * spread
         )
         activation *= retrieval_gain
@@ -170,6 +178,8 @@ def retrieve(
                     "spread": spread,
                     "emotional": emotional,
                     "retrieval_gain": retrieval_gain,
+                    "mood_weight": mood_weight,
+                    "emotion_weight": emotion_weight,
                 },
             )
         )

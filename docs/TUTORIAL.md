@@ -492,19 +492,28 @@ curl -s http://127.0.0.1:8788/api/recall \
 优点：语言无关、进程隔离、可单独重启。
 缺点：多一个进程；本地端口需要安全边界（默认只监听 127.0.0.1，无认证）。
 
-### 8.3 MCP Server（路线图）
+### 8.3 MCP Server（已实现）
 
-计划中的工具：
-
-```text
-memory.perceive(content, importance?, tags?)
-memory.recall(query, top_k?)
-memory.reappraise(id, delta?)
-affect.snapshot()
-sleep.consolidate(hours?)
+```bash
+python -m thymos.mcp_server --state .thymos/mcp.json --offline
 ```
 
-MCP 适合 Claude Desktop、IDE Agent 等宿主；目前还没有实现，别把它当成现成功能。
+可用工具：`memory_context`、`memory_plan`、`memory_observe`、`memory_recall`、
+`memory_correct_fact`、`memory_delete_fact`、`memory_snapshot`。宿主每轮先调用
+`memory_context`；要调试路由和预算时调用 `memory_plan`。配置见 [MCP.md](MCP.md)。
+
+### 8.4 控制平面：解释“为什么这样选”
+
+```python
+plan = memory.plan("我叫什么？", max_chars=600)
+print(plan["intent"]["label"])        # factual
+print(plan["affect"]["mood_weight"])  # 0.0
+print(plan["operators"])              # 四类记忆算子的候选/选中
+print(plan["context"])                # 给 LLM 的上下文
+```
+
+事实/技术问题关闭心境一致性、不暴露“当前模拟状态”；支持型问题保留情绪通道。
+这是 0.3.0 的产品默认值，不是拟合出来的最优参数。
 
 ---
 

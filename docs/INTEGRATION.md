@@ -4,7 +4,7 @@
 >
 > 本文是接口参考。想看“记忆怎么存、遗忘怎么算、情绪怎么来、LLM 负责什么”，先读
 > [TUTORIAL.md](TUTORIAL.md)。本文给出三种集成方式：Python 直接调用、HTTP API、Agent 循环模式。
-> MCP Server 在路线图中（P3）。
+> MCP Server 已在 0.2 提供；0.3 增加 `memory_plan` 与 `/api/context` 审计入口。
 
 ---
 
@@ -37,6 +37,21 @@ memory.end_session(7.5)
 
 `AgentMemory` 是薄门面，底层仍然是 `Thymos`；需要完全控制时用 `memory.mind`。
 只有回复里包含承诺/约定/重要自我披露时，才传 `assistant_text`；不要默认保存每条模型回复。
+
+### 1.0 计划与审计（0.3.0）
+
+`context()` 默认已走控制平面；如果要在日志里解释“为什么这样选”，用 `plan()`：
+
+```python
+plan = memory.plan(user_text, top_k=4, max_chars=900)
+print(plan["intent"]["label"])          # factual / affective / technical ...
+print(plan["affect"]["mood_weight"])    # 事实问题为 0
+print(plan["operators"])                # fact / episode / graph / summary
+print(plan["context"])                  # 与 context() 相同的上下文
+```
+
+事实/技术问题不会暴露“当前模拟状态”；支持型问题才保留情绪块。这个策略在
+`src/thymos/policy.py`，可以按业务替换。完整产品边界见 [PRODUCT.md](PRODUCT.md)。
 
 ### 1.1 底层等价写法
 

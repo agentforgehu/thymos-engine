@@ -6,18 +6,18 @@
 
 一个本地优先、可解释、可复现的「情绪 × 记忆 × 内分泌 × 环境」耦合引擎。
 
-[English](README.en.md) · [教程](docs/TUTORIAL.md) · [MCP 接入](docs/MCP.md) · [P0–P2 升级](docs/UPGRADE_P0_P2.md) · [目标校准与同类项目](docs/STRATEGY.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [50 轮实测](docs/LOCAL_LLM_50_TEST.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [Held-out 评测](docs/results/heldout_eval.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
+[English](README.en.md) · [产品定义](docs/PRODUCT.md) · [教程](docs/TUTORIAL.md) · [MCP 接入](docs/MCP.md) · [P0–P2 升级](docs/UPGRADE_P0_P2.md) · [目标校准与同类项目](docs/STRATEGY.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [50 轮实测](docs/LOCAL_LLM_50_TEST.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [Held-out 评测](docs/results/heldout_eval.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.2.0%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.3.0%20alpha-f59e0b)
 
 </div>
 
-> **状态：v0.2.0 本地实验版。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学沙盒：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，观察它们如何互相拉扯。0.2.0 重点补的是事实可靠性、安全边界、MCP 接入与 held-out 评测，而不是更多情绪变量。API 仍可能变化。
+> **状态：v0.3.0 本地实验版，控制平面 MVP。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学内核算上的一层控制平面：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，再决定“这次该用哪种记忆、情绪能不能参与、预算先给谁、为什么这样选”。0.3.0 的重点是意图路由、情绪门控、四类记忆算子和审计轨迹；API 仍可能变化。
 
-> **定位：从“记忆引擎”到“记忆控制平面”。** 存储、索引、检索这些数据平面已经商品化；Thymos 不在这里硬碰，而是做数据平面之上的表示路由、情绪路由、预算路由与审计。详见 [STRATEGY.md](docs/STRATEGY.md) 的 4.6 节。
+> **定位：从“记忆引擎”到“记忆控制平面”。** 存储、索引、检索这些数据平面已经商品化；Thymos 不在这里硬碰，而是做数据平面之上的表示路由、情绪路由、预算路由与审计。0.3.0 的保留/改写/放弃/冻结清单见 [PRODUCT.md](docs/PRODUCT.md)。
 
 ---
 
@@ -106,7 +106,7 @@ python -m thymos --offline serve
 python -m thymos.mcp_server --state .thymos/mcp.json --offline
 ```
 
-这是一个 stdio MCP server，提供 `memory_context`、`memory_observe`、`memory_recall`、`memory_correct_fact`、`memory_delete_fact`、`memory_snapshot` 六个工具。宿主 Agent 每轮先取记忆、回答后按需写入；记忆块带 `<memory trust="untrusted">` 边界，不会被当成系统指令。完整配置见 [docs/MCP.md](docs/MCP.md)。
+这是一个 stdio MCP server，提供 `memory_context`、`memory_plan`、`memory_observe`、`memory_recall`、`memory_correct_fact`、`memory_delete_fact`、`memory_snapshot` 七个工具。宿主 Agent 每轮先取记忆、回答后按需写入；`memory_plan` 会返回意图、情绪门控、算子与预算审计。记忆块带 `<memory trust="untrusted">` 边界，不会被当成系统指令。完整配置见 [docs/MCP.md](docs/MCP.md)。
 
 ---
 
@@ -171,6 +171,22 @@ memory.end_session(7.5)                                      # 夜间/退出
 [从 0 到 1 教程](docs/TUTORIAL.md)；接口细节见 [集成指南](docs/INTEGRATION.md)。
 可运行示例：`python examples/chatbot_demo.py`。
 
+### 看清它为什么这样选
+
+`memory.plan()` 和 `memory.context()` 走同一个控制平面，但 `plan()` 会多返回一份审计：
+
+```python
+plan = memory.plan("我叫什么？", max_chars=600)
+print(plan["intent"]["label"])        # factual
+print(plan["affect"]["mood_weight"])  # 0.0：事实问题关闭心境一致性
+print(plan["operators"])              # fact_lookup / episode_recall / graph / summary
+print(plan["context"])                # 给 LLM 的上下文
+```
+
+事实问题不暴露“当前模拟状态”，支持型问题才保留情绪通道；这条规则在
+`src/thymos/policy.py`，可以按产品需要替换。完整产品定义、与 Mem0/Graphiti/Letta/MemoryBank
+等项目的取舍见 [PRODUCT.md](docs/PRODUCT.md)。
+
 ### 接真实 LLM
 
 `examples/llm_chat.py` 是零依赖的 DeepSeek / Ollama 版本，支持交互和脚本化演示：
@@ -221,7 +237,7 @@ python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 | Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
 | Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
 | ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
-| **Thymos** | **痕迹 + 关联图 + 图式** | **FSRS 曲线** | **快情绪 + 慢心境** | **8 变量 HPA** | **天气/光照/季节** | **是，104 项测试 + 5 个实验** |
+| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，116 项测试 + 5 个实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
 
@@ -324,6 +340,9 @@ src/thymos/
   weather.py      Open-Meteo 客户端 + 缓存 + 合成天气
   memory.py       痕迹存储 + 稀疏关联图
   facts.py        多值事实、事件时间、纠正/退休
+  policy.py       查询意图分类 + 情绪门控策略
+  control.py      表示/情绪/预算路由 + 审计轨迹
+  backends.py     可插拔记忆后端协议
   safety.py       PII 脱敏、注入边界
   tokens.py       保守 token 预算
   sqlite_store.py 可选 SQLite WAL 存储
@@ -335,7 +354,7 @@ src/thymos/
   dashboard.html  零依赖可视化面板
   cli.py          命令行
 experiments/      五个实验 + 检索基线 + 回放 harness + held-out 评测
-tests/             104 项测试
+tests/             116 项测试
 docs/             教程、研究、设计、实验、命名、路线图
 ```
 
@@ -351,10 +370,9 @@ docs/             教程、研究、设计、实验、命名、路线图
 
 ## 路线图
 
-- **v0.2.0（当前）** 可靠性升级：多值事实/事件时间/纠正、安全边界、MCP、SQLite 可选后端、held-out 评测、104 项测试、50 轮本地模型实测。
-- **v0.2** 静态加密与保留期、多用户命名空间、FTS/向量索引、reranker、100+ 条中文检索基准、人工盲评。
-- **v0.3** Agent 框架适配包（Letta / LangGraph / Dify / AstrBot）、远程 MCP、完整记忆编辑/导出 UI。
-- **v0.4** 参数拟合工具、个体化校准、更多环境变量（空气质量、噪声、社交密度）。
+- **v0.3.0（当前）** 控制平面 MVP：意图路由、情绪门控、事实/情景/图/摘要四算子、预算规划、审计轨迹、`MemoryBackend` 协议；116 项测试。
+- **v0.3.x** 外部 benchmark 强基线、Mem0/Graphiti 参考适配器、多租户 SQLite、静态加密/保留期、审计 UI。
+- **v0.4** 参数敏感性分析、个体化校准、更多环境变量（空气质量、噪声、社交密度）。
 - **v1.0** 开放基准、社区治理、稳定 API、隐私与安全审计。
 
 详见 [docs/ROADMAP.md](docs/ROADMAP.md)。

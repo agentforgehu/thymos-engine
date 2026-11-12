@@ -1,14 +1,16 @@
 cff-version: 1.2.0
 message: "If you use Thymos in academic work, please cite this repository."
-title: "Thymos: A Local-First Engine Coupling Forgetting, Affect, Endocrine Modulation and Environment"
+title: "Thymos: A Local-First Memory Control Plane Coupling Forgetting, Affect, Endocrine Modulation and Environment"
 abstract: >-
-  Thymos is a research sandbox that couples an FSRS-style forgetting curve,
-  appraisal-based affect, an eight-variable endocrine layer, and weather/light
-  coupling in one deterministic, inspectable state.
+  Thymos is a research-grade memory control plane for LLM agents. It couples an
+  FSRS-style forgetting curve, appraisal-based affect, an eight-variable
+  endocrine layer, and weather/light coupling in one deterministic, inspectable
+  state, then routes facts, episodes, graph neighbours and schema summaries under
+  an explicit context budget with an audit trace.
 authors:
   - name: "Thymos contributors"
-version: 0.2.0
-date-released: "2026-11-12"
+version: 0.3.0
+date-released: "2026-11-13"
 license: MIT
 repository-code: "https://github.com/agentforgehu/thymos-engine"
 keywords:
@@ -18,4 +20,6 @@ keywords:
   - FSRS
   - ACT-R
   - endocrine
+  - memory control plane
+  - context routing
   - agent

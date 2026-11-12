@@ -43,7 +43,7 @@ def make_handler(engine: Thymos, lock: threading.Lock, token: str | None = None)
     dashboard = Path(__file__).with_name("dashboard.html")
 
     class Handler(BaseHTTPRequestHandler):
-        server_version = "Thymos/0.1"
+        server_version = "Thymos/0.3"
 
         def log_message(self, fmt: str, *args: Any) -> None:  # silence default logging
             return
@@ -84,6 +84,10 @@ def make_handler(engine: Thymos, lock: threading.Lock, token: str | None = None)
             if path == "/api/state":
                 with lock:
                     _json_response(self, engine.snapshot())
+                return
+            if path == "/api/audit":
+                with lock:
+                    _json_response(self, {"last_audit": engine.last_audit})
                 return
             if path == "/api/memories":
                 qs = parse_qs(parsed.query)
@@ -167,6 +171,23 @@ def make_handler(engine: Thymos, lock: threading.Lock, token: str | None = None)
                 hits = engine.recall(body.get("query") or "", top_k=int(body.get("top_k", 5)))
                 engine.save()
                 return {"hits": [h.to_dict(engine.now) for h in hits], "state": engine.snapshot()}
+
+            if path in ("/api/context", "/api/plan"):
+                query = (body.get("query") or body.get("user_text") or "").strip()
+                if not query:
+                    raise ValueError("query is required")
+                max_chars = body.get("max_chars")
+                max_tokens = body.get("max_tokens")
+                plan = engine.plan_context(
+                    query,
+                    top_k=int(body.get("top_k", 5)),
+                    min_score=float(body.get("min_score", 0.0)),
+                    update=bool(body.get("review", True)),
+                    max_chars=int(max_chars) if max_chars is not None else None,
+                    max_tokens=int(max_tokens) if max_tokens is not None else None,
+                )
+                engine.save()
+                return {"context": plan.text, "plan": plan.to_dict(), "last_audit": engine.last_audit}
 
             if path == "/api/tick":
                 seconds = body.get("seconds")

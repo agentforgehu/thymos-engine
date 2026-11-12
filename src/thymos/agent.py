@@ -25,7 +25,6 @@ from .engine import Thymos
 from .facts import Fact
 from .mathx import clamp
 from .memory import MemoryStore
-from .tokens import estimate_tokens, trim_to_tokens
 from .types import MemoryItem, RetrievalResult
 
 # Rules are intentionally cheap and transparent.  Replace `importance` with a
@@ -147,26 +146,40 @@ class AgentMemory:
         ``max_tokens`` is a conservative tokenizer-independent upper bound; if
         both are supplied, the rendered block must satisfy both.
         """
-        hits = self.recall(user_text, top_k=top_k, review=review)
-        if min_score > 0:
-            hits = [hit for hit in hits if hit.score >= min_score]
-        # A character budget cannot be mapped exactly to an unknown tokenizer.
-        # Use a generous character cap, then trim against the token estimate.
-        char_budget = max_chars
-        if max_tokens is not None:
-            token_char_cap = max(64, int(max_tokens * 3))
-            char_budget = token_char_cap if char_budget is None else min(char_budget, token_char_cap)
-        text = self.mind.render_context(hits, query=user_text, max_chars=char_budget)
-        if max_tokens is not None:
-            text = trim_to_tokens(text, max_tokens)
-            self.mind._last_context_stats.update(
-                {
-                    "chars": len(text),
-                    "tokens": estimate_tokens(text),
-                    "budget_tokens": max_tokens,
-                }
-            )
-        return text
+        plan = self.mind.plan_context(
+            user_text,
+            top_k=top_k,
+            min_score=min_score,
+            update=review,
+            max_chars=max_chars,
+            max_tokens=max_tokens,
+        )
+        return plan.text
+
+    def plan(
+        self,
+        user_text: str,
+        *,
+        top_k: int = 5,
+        min_score: float = 0.0,
+        review: bool = True,
+        max_chars: int | None = None,
+        max_tokens: int | None = None,
+    ) -> dict[str, Any]:
+        """Return the context plus the control-plane audit trace.
+
+        The returned dict is JSON-serialisable: ``context`` is the prompt
+        block, ``intent`` and ``affect`` explain the routing decision, and
+        ``operators`` explains which memory representations were consulted.
+        """
+        return self.mind.plan_context(
+            user_text,
+            top_k=top_k,
+            min_score=min_score,
+            update=review,
+            max_chars=max_chars,
+            max_tokens=max_tokens,
+        ).to_dict()
 
     def snapshot(self) -> dict[str, Any]:
         """Return the full inspectable state (affect, endocrine, memory stats)."""
