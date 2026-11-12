@@ -6,7 +6,7 @@
 
 一个本地优先、可解释、可复现的「情绪 × 记忆 × 内分泌 × 环境」耦合引擎。
 
-[English](README.en.md) · [教程](docs/TUTORIAL.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
+[English](README.en.md) · [教程](docs/TUTORIAL.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
@@ -149,13 +149,13 @@ memory = AgentMemory(
     config=ThymosConfig(offline=True, seed=7),
 )
 
-context = memory.context(user_text, top_k=3, min_score=0.30)  # 回复前
+context = memory.context(user_text, top_k=3, min_score=0.30, max_chars=900)  # 回复前；硬预算
 reply = my_llm(system_prompt + context, user_text)           # 你的 LLM
 memory.observe(user_text)                                    # 回复后：只记用户事实
 memory.end_session(7.5)                                      # 夜间/退出
 ```
 
-只有当回复里包含承诺或重要的自我披露时，才传第二个参数 `assistant_text`；不要把每条模型回复都写回记忆。
+只有当回复里包含承诺或重要的自我披露时，才传第二个参数 `assistant_text`；不要把每条模型回复都写回记忆。本地小模型用 `max_chars` 控制预算，不要直接拼完整历史。
 
 完整原理、记忆存储格式、遗忘公式、情绪评价和 LLM 边界，见
 [从 0 到 1 教程](docs/TUTORIAL.md)；接口细节见 [集成指南](docs/INTEGRATION.md)。
@@ -211,7 +211,7 @@ python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 | Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
 | Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
 | ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
-| **Thymos** | **痕迹 + 关联图 + 图式** | **FSRS 曲线** | **快情绪 + 慢心境** | **8 变量 HPA** | **天气/光照/季节** | **是，80 项测试 + 5 个实验** |
+| **Thymos** | **痕迹 + 关联图 + 图式** | **FSRS 曲线** | **快情绪 + 慢心境** | **8 变量 HPA** | **天气/光照/季节** | **是，89 项测试 + 5 个实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
 
@@ -247,6 +247,7 @@ python experiments/replay_harness.py --llm mock
 | 天气耦合 | 30 天心境平均绝对差 **0.012**，最大 **0.028**（效应刻意保持很小） |
 | 情绪记忆 | 半衰期：中性 **9.6 天** / 轻度 **15.8 天** / 高唤醒 **35.9 天** |
 | 中文 embedding 检索 | 12 条基线：hash recall@1 **0.417** / recall@3 **0.750** / MRR **0.572**；可用 `--embedding ollama` 对比 bge-m3 |
+| 小上下文记忆 | 900/600 字符预算、50 轮：Thymos **16/16**；最近对话基线 **7/16**（见 [BUDGET_CONTEXT.md](docs/BUDGET_CONTEXT.md)） |
 
 ![间隔效应](docs/figures/fig2_spacing.png)
 
@@ -318,7 +319,7 @@ src/thymos/
   dashboard.html  零依赖可视化面板
   cli.py          命令行
 experiments/      五个实验 + 检索基线 + 回放 harness
-tests/            80 项测试
+tests/             89 项测试
 docs/             教程、研究、设计、实验、命名、路线图
 ```
 

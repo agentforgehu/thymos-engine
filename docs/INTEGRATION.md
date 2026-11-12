@@ -20,7 +20,8 @@ memory = AgentMemory(
 )
 
 # 对话前：按用户这句话回忆，并渲染成提示词块
-context = memory.context(user_text, top_k=3, min_score=0.30)
+# max_chars 是硬预算；本地小模型建议 600–1200
+context = memory.context(user_text, top_k=3, min_score=0.30, max_chars=900)
 system_prompt = f"""你是一个有记忆的助手。以下是相关的过去经历与当前状态。
 不要声称自己有真实的生理感受；这些是模拟状态，用于保持叙事一致。
 
@@ -78,6 +79,17 @@ mind.save()
 - 长对话中，用户提到“上次”“之前”时强制回忆；
 - 生成前如果 `max(hit.score) < 0.35`，告诉模型“没有相关记忆”，不要编造；
 - 把 `components` 留给调试界面，不要全塞进 prompt。
+
+### 1.4 本地小模型：用预算而不是长历史
+
+本地模型上下文有限时，不要把最近几十轮对话直接拼进 prompt。`max_chars` 会先放结构化事实（姓名、城市、地址、宠物、项目、过敏、作息等），再用剩余空间放紧凑的情景记忆；被新事实取代的旧情景会被过滤。
+
+```python
+# 900 字符预算，适合 2K–4K token 的本地模型
+context = memory.context(user_text, top_k=5, max_chars=900)
+```
+
+如果模型更小，可以从 600 或 400 开始。不要同时把 `snapshot()`、完整 Top-k 和原始对话都塞进去；预算越小，越应该依赖事实块。900 字符预算下的 50 轮对照结果见 [BUDGET_CONTEXT.md](BUDGET_CONTEXT.md)。
 
 ---
 

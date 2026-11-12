@@ -74,6 +74,15 @@
 
 - `docs/EVALUATION.md`：客服/陪伴型 Bot 的任务级验证协议、样本量与 go/no-go 标准。
 - `experiments/replay_harness.py`：五种记忆条件的多会话回放骨架；示例数据在 `experiments/data/replay_demo.jsonl`。
+- `FactStore` / `Fact`：带有效期的高价值事实槽位，新值关闭旧值，支持历史查询与被取代值的过滤。
+- `AgentMemory.context(..., max_chars=...)` 与 `Thymos.render_context(..., query, max_chars)`：硬字符预算，结构化事实优先，剩余预算才给情景记忆。
+- `docs/BUDGET_CONTEXT.md`：900/600 字符预算下 50 轮 A/B 实测（Thymos 均为 16/16，最近对话基线 7/16）。
+- `experiments/budget_compare.py`：同预算的 `thymos` vs `recent` 对照脚本。
+- 9 项事实/预算回归测试；当前总计 89 项。
+
+### Fixed
+
+- 搬家意向（“考虑搬去/如果搬去”）不再提前覆盖当前城市；只有决定/完成搬家或地址陈述才更新。
 
 ### Planned
 

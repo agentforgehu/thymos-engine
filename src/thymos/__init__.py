@@ -23,6 +23,7 @@ from .config import Profile, ThymosConfig
 from .engine import Thymos
 from .agent import AgentMemory, estimate_importance
 from .embedding_http import EmbeddingError, OllamaEmbedder, OpenAIEmbedder
+from .facts import Fact, FactStore
 from .types import Appraisal, Emotion, MemoryItem, RetrievalResult
 
 __version__ = "0.1.2"
@@ -34,6 +35,8 @@ __all__ = [
     "OllamaEmbedder",
     "OpenAIEmbedder",
     "EmbeddingError",
+    "Fact",
+    "FactStore",
     "Profile",
     "ThymosConfig",
     "Appraisal",

@@ -294,6 +294,7 @@ def run_turn(
         # Surfacing a memory in the prompt is not the same as the user
         # rehearsing it.  Default to read-only; opt in with --review.
         review=args.review,
+        max_chars=args.context_budget or None,
     )
     if show_context or args.show_context:
         print("\n--- 记忆与状态（LLM 实际看到的部分）---")
@@ -445,6 +446,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--location", default="上海", help="Profile 地点（离线模式下只做上下文）")
     parser.add_argument("--top-k", type=int, default=4, help="注入几条记忆")
     parser.add_argument("--min-score", type=float, default=0.30, help="低于此分数的记忆不注入")
+    parser.add_argument(
+        "--context-budget",
+        type=int,
+        default=0,
+        help="记忆块硬预算（字符）；本地小模型建议 600–1200，0 表示不限制",
+    )
     parser.add_argument(
         "--embedding",
         choices=["hash", "ollama"],

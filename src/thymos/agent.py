@@ -128,16 +128,21 @@ class AgentMemory:
         top_k: int = 5,
         min_score: float = 0.0,
         review: bool = True,
+        max_chars: int | None = None,
     ) -> str:
         """Return a compact prompt block for the current user turn.
 
         ``min_score`` filters weak hits.  A value around 0.35 is a reasonable
         starting point; set it to 0 to let the engine return its top-k.
+
+        ``max_chars`` is a hard prompt budget.  Structured facts are rendered
+        first; only the remaining characters are spent on episodic memories.
+        This is the recommended mode for a local model with a small context.
         """
         hits = self.recall(user_text, top_k=top_k, review=review)
         if min_score > 0:
             hits = [hit for hit in hits if hit.score >= min_score]
-        return self.mind.render_context(hits)
+        return self.mind.render_context(hits, query=user_text, max_chars=max_chars)
 
     def snapshot(self) -> dict[str, Any]:
         """Return the full inspectable state (affect, endocrine, memory stats)."""

@@ -312,6 +312,21 @@ MemoryItem:
 spread_i = min(1.5, Σ_j w_ij * R_j)
 ```
 
+### 5.5 结构化事实层
+
+情景记忆回答“发生过什么”，但不擅长回答“现在什么是真的”。`FactStore` 因此单独保存高价值事实：
+
+```text
+Fact:
+    subject, predicate, value
+    valid_from, valid_to        # 新值关闭旧值，不删除历史
+    confidence, source, memory_id
+```
+
+抽取是规则兜底（姓名、城市、地址、宠物、过敏、项目、截止、职业、朋友、作息、咖啡），不依赖 LLM；宿主也可以通过 `FactStore.add()` 写入自己的结构化事实。渲染时当前事实优先，旧值只在用户明确问“以前/搬家前”时出现；被新事实取代的旧情景记忆会被过滤，避免同一事实的两个版本同时进入 prompt。
+
+这让上下文预算可以很小：事实块通常只有十几行，却覆盖了最容易在长对话里丢失的稳定信息。预算接口见 `AgentMemory.context(..., max_chars=...)`；600/900 字符的 50 轮对照见 [BUDGET_CONTEXT.md](BUDGET_CONTEXT.md)。
+
 ---
 
 ## 6. 提取

@@ -72,8 +72,8 @@ memory = AgentMemory(
     config=ThymosConfig(offline=True, seed=7),
 )
 
-# 1) 回复前：拿相关记忆 + 当前状态
-context = memory.context(user_text, top_k=3, min_score=0.30)
+# 1) 回复前：拿相关记忆 + 当前状态；max_chars 是硬预算
+context = memory.context(user_text, top_k=3, min_score=0.30, max_chars=900)
 
 # 2) 你的 LLM
 reply = my_llm(system_prompt + "\n\n" + context, user_text)

@@ -21,6 +21,7 @@ from .environment import (
     local_datetime,
     sleep_debt,
 )
+from .facts import FactStore
 from .forgetting import initial_stability, retrievability
 from .mathx import clamp
 from .memory import MemoryStore
@@ -68,6 +69,7 @@ class Thymos:
         self.rng = random.Random(self.config.seed)
         self.embedder = embedder or make_embedder(self.config.embedding_dim)
         self.store = MemoryStore()
+        self.facts = FactStore()
         self.affect = AffectDynamics(self.config, self.profile)
         self.endocrine = EndocrineSystem()
         self.now = float(now if now is not None else time.time())
@@ -247,6 +249,12 @@ class Thymos:
             source=source,
         )
         self.store.add(item)
+        self.facts.observe(
+            content,
+            at=self.now,
+            source=source,
+            memory_id=item.id,
+        )
 
         for similar, similarity in self.store.most_similar(
             embedding,
@@ -460,44 +468,88 @@ class Thymos:
         hits: list[RetrievalResult] | None = None,
         *,
         include_endocrine: bool = False,
+        query: str = "",
+        max_chars: int | None = None,
     ) -> str:
-        """Render retrieved memories and affect as a compact prompt block.
+        """Render facts, retrieved memories and affect as a compact prompt block.
 
-        The output is deliberately plain text: it should be easy for a host
-        application to wrap, localize, or redact.  It never claims that the
-        simulation is a real body.
+        ``max_chars`` is a hard character budget, not a hint.  It exists because
+        a local model often has a much smaller context than the memory store;
+        the renderer must choose what to show instead of dumping Top-k.
+
+        Structured facts come first: they are the smallest representation of
+        "what is true now", and they are not allowed to compete with dozens of
+        episodic traces for a Top-k slot.
         """
         hits = hits or []
-        lines = ["## 相关记忆"]
-        if not hits:
-            lines.append("（没有找到相关记忆。不要编造。）")
+        fact_block = self.facts.render(
+            query,
+            at=self.now,
+            max_chars=int(max_chars * 0.45) if max_chars else None,
+        )
+        stale_values = self.facts.stale_values(self.now, query)
+
         seen: set[str] = set()
+        memory_lines = ["## 相关记忆"]
         for hit in hits:
             m = hit.memory
+            if any(value and value in m.content for value in stale_values):
+                continue
             # Consolidation can leave a semantic copy with the same content as
             # its episodic source.  Do not show the model the same fact twice.
             key = m.content.strip()
             if key in seen:
                 continue
             seen.add(key)
-            lines.append(
-                f"- {m.content}（相关度 {hit.score:.2f}，可提取度 {hit.retrievability:.0%}，"
-                f"情绪 {m.valence:+.2f}，稳定度 {m.stability:.2f} 天）"
-            )
+            if max_chars:
+                memory_lines.append(f"- {m.content[:180]}")
+            else:
+                memory_lines.append(
+                    f"- {m.content}（相关度 {hit.score:.2f}，可提取度 {hit.retrievability:.0%}，"
+                    f"情绪 {m.valence:+.2f}，稳定度 {m.stability:.2f} 天）"
+                )
+        if len(memory_lines) == 1:
+            memory_lines.append("（没有找到相关记忆。不要编造。）")
+
         s = self.affect.state
-        lines.extend(
-            [
-                "",
-                "## 当前模拟状态",
-                f"心境 {s.mood_valence:+.2f}；压力 {s.stress:.2f}；"
-                f"疲劳 {s.fatigue:.2f}；主导情绪 {s.dominant_emotion}。",
-                "这些是模拟状态，不是真实生理感受；只用于保持语气与叙事一致。",
-            ]
-        )
+        state_lines = [
+            "## 当前模拟状态",
+            f"心境 {s.mood_valence:+.2f}；压力 {s.stress:.2f}；"
+            f"疲劳 {s.fatigue:.2f}；主导情绪 {s.dominant_emotion}。",
+            "这些是模拟状态，不是真实生理感受；只用于保持语气与叙事一致。",
+        ]
         if include_endocrine:
             levels = ", ".join(f"{k}={v:.2f}" for k, v in self.endocrine.levels.items())
-            lines.append(f"相对内分泌水平：{levels}（0–1 相对单位，非医学指标）")
-        return "\n".join(lines)
+            state_lines.append(f"相对内分泌水平：{levels}（0–1 相对单位，非医学指标）")
+
+        if not max_chars:
+            parts = ([fact_block] if fact_block else []) + [
+                "\n".join(memory_lines),
+                "\n".join(state_lines),
+            ]
+            return "\n\n".join(parts)
+
+        # Budgeted path: facts first, then as many compact memories as fit,
+        # then the short state block.  Never exceed the caller's budget.
+        parts: list[str] = []
+        if fact_block:
+            parts.append(fact_block)
+        used = sum(len(part) + 2 for part in parts)
+        remaining = max(0, max_chars - used - len("\n".join(state_lines)) - 2)
+        selected = memory_lines[:1]
+        for line in memory_lines[1:]:
+            if len(line) + 1 > remaining:
+                break
+            selected.append(line)
+            remaining -= len(line) + 1
+        if len(selected) == 1 and remaining > 20:
+            selected.append("（预算不足，未展开情景记忆。）")
+        parts.append("\n".join(selected))
+        parts.append("\n".join(state_lines))
+        text = "\n\n".join(parts)
+        if len(text) > max_chars:
+            text = text[: max(0, max_chars)].rstrip()
+        return text
 
     def stats(self) -> dict[str, Any]:
         items = self.store.all()
@@ -530,6 +582,7 @@ class Thymos:
             },
             "affect": self.affect.snapshot(),
             "endocrine": self.endocrine.snapshot(),
+            "facts": self.facts.to_list(),
             "memory": self.stats(),
             "top_memories": self.top_memories(6),
             "events": self.events[-20:],
@@ -556,6 +609,7 @@ class Thymos:
             "endocrine": self.endocrine.to_dict(),
             "environment": self.environment.to_dict(),
             "memory": self.store.to_list(),
+            "facts": self.facts.to_list(),
             "events": self.events[-200:],
             "tick_count": self._tick_count,
         }
@@ -585,6 +639,7 @@ class Thymos:
         obj.affect = AffectDynamics.from_dict(config, profile, data.get("affect"))
         obj.endocrine = EndocrineSystem.from_dict(data.get("endocrine"))
         obj.store = MemoryStore.from_list(data.get("memory"))
+        obj.facts = FactStore.from_list(data.get("facts"))
         obj.environment = EnvironmentState.from_dict(data.get("environment"))
         obj._effects = environment_effects(obj.environment, profile)
         obj.events = list(data.get("events") or [])
