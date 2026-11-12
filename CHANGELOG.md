@@ -70,6 +70,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `docs/EVALUATION.md`：客服/陪伴型 Bot 的任务级验证协议、样本量与 go/no-go 标准。
+
 ### Planned
 
 - 参数恢复与消融实验。

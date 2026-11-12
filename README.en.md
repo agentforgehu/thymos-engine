@@ -6,7 +6,7 @@
 
 A local-first, inspectable engine that couples forgetting curves, appraisal-based affect, endocrine modulation, and real-world environment.
 
-[中文](README.md) · [Tutorial (Chinese)](docs/TUTORIAL.md) · [Research](docs/RESEARCH.md) · [Design](docs/DESIGN.md) · [Experiments](docs/EXPERIMENTS.md) · [Naming](docs/NAMING.md) · [Roadmap](docs/ROADMAP.md)
+[中文](README.md) · [Tutorial (Chinese)](docs/TUTORIAL.md) · [Research](docs/RESEARCH.md) · [Design](docs/DESIGN.md) · [Experiments](docs/EXPERIMENTS.md) · [Evaluation (Chinese)](docs/EVALUATION.md) · [Naming](docs/NAMING.md) · [Roadmap](docs/ROADMAP.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)

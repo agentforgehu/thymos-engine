@@ -6,7 +6,7 @@
 
 一个本地优先、可解释、可复现的「情绪 × 记忆 × 内分泌 × 环境」耦合引擎。
 
-[English](README.en.md) · [教程](docs/TUTORIAL.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
+[English](README.en.md) · [教程](docs/TUTORIAL.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
@@ -214,6 +214,14 @@ python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 | **Thymos** | **痕迹 + 关联图 + 图式** | **FSRS 曲线** | **快情绪 + 慢心境** | **8 变量 HPA** | **天气/光照/季节** | **是，80 项测试 + 5 个实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
+
+---
+
+## 怎么证明它有用
+
+记忆命中率、情绪词命中率都不能证明业务提升。正确做法是**同一个 LLM、同一套 prompt、同样的 token 与延迟预算，只换记忆层**，做任务级反事实比较：客服看首次解决率（FCR）与 7/30 天重复 contact，陪伴型看“感知被记得”和用户福祉，留存只能当次指标。先用 100–200 个历史多会话案例做离线回放，再做按客户/用户随机分组的线上 A/B。
+
+完整协议、样本量计算、对照组设计和 go/no-go 标准见 [docs/EVALUATION.md](docs/EVALUATION.md)。
 
 ---
 
