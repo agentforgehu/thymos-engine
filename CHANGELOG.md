@@ -77,6 +77,7 @@
 - `FactStore` / `Fact`：带有效期的高价值事实槽位，新值关闭旧值，支持历史查询与被取代值的过滤。
 - `AgentMemory.context(..., max_chars=...)` 与 `Thymos.render_context(..., query, max_chars)`：硬字符预算，结构化事实优先，剩余预算才给情景记忆。
 - `docs/BUDGET_CONTEXT.md`：900/600 字符预算下 50 轮 A/B 实测（Thymos 均为 16/16，最近对话基线 7/16）。
+- `docs/GAPS.md`：现有不足与上线前审计，按 P0/P1/P2 给出事实可靠性、评测效度、隐私、检索与工程化优先级。
 - `experiments/budget_compare.py`：同预算的 `thymos` vs `recent` 对照脚本。
 - 9 项事实/预算回归测试；当前总计 89 项。
 

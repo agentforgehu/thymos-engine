@@ -6,7 +6,7 @@
 
 一个本地优先、可解释、可复现的「情绪 × 记忆 × 内分泌 × 环境」耦合引擎。
 
-[English](README.en.md) · [教程](docs/TUTORIAL.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
+[English](README.en.md) · [教程](docs/TUTORIAL.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
