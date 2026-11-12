@@ -32,7 +32,8 @@ POSITIVE_WORDS = (
     "喜欢", "开心", "高兴", "成功", "完成", "顺利", "通过", "惊喜", "期待",
     "温暖", "安全", "奖励", "夸", "拥抱", "陪", "爱", "感谢", "赞", "进步",
     "很好", "好消息", "赢", "达成", "放松", "安心", "满意", "骄傲", "治愈",
-    "有趣", "跑完", "搞定", "支持", "理解", "原谅",
+    "有趣", "跑完", "搞定", "支持", "理解", "原谅", "表扬", "赞美", "认可",
+    "关心", "照顾", "安慰", "陪伴", "夸奖", "鼓励", "体贴", "可靠",
     "good", "great", "love", "success", "win", "happy", "thanks", "proud",
     "nice", "better", "done", "pass", "safe",
 )
@@ -41,7 +42,8 @@ NEGATIVE_WORDS = (
     "失败", "难过", "生气", "焦虑", "害怕", "痛", "讨厌", "糟糕", "问题",
     "错误", "崩溃", "压力", "孤独", "失去", "担心", "批评", "冲突", "吵",
     "拒绝", "委屈", "失望", "累", "烦", "危险", "攻击", "病", "伤害",
-    "投诉", "崩了", "迟到", "来不及", "搞砸",
+    "投诉", "崩了", "迟到", "来不及", "搞砸", "骂", "指责", "嘲讽", "侮辱",
+    "冷落", "忽视", "烂", "糟糕", "差劲",
     "bad", "fail", "angry", "sad", "fear", "pain", "hate", "stress",
     "lonely", "wrong", "crash", "bug", "afraid", "lost", "sorry",
 )
@@ -50,7 +52,10 @@ NEGATIVE_WORDS = (
 WEIGHTS = {
     "骄傲": 1.6, "惊喜": 1.5, "成功": 1.3, "开心": 1.25, "爱": 1.4,
     "崩溃": 1.6, "孤独": 1.3, "压力": 1.25, "失败": 1.3, "投诉": 1.3,
-    "伤害": 1.3, "讨厌": 1.25, "失望": 1.2,
+    "伤害": 1.3, "讨厌": 1.25, "失望": 1.2, "夸": 1.3, "表扬": 1.3,
+    "赞美": 1.3, "认可": 1.2, "关心": 1.2, "照顾": 1.2, "安慰": 1.15,
+    "骂": 1.5, "指责": 1.4, "嘲讽": 1.4, "侮辱": 1.5, "冷落": 1.3,
+    "忽视": 1.2, "烂": 1.1, "差劲": 1.2,
 }
 
 HIGH_STAKES = (
@@ -67,7 +72,10 @@ NOVELTY_WORDS = (
 CONTROL_HIGH = ("我能", "可以", "决定", "选择", "掌控", "搞定", "我来", "i can", "i will", "decide")
 CONTROL_LOW = ("无法", "只能", "被迫", "没办法", "不得不", "做不到", "cannot", "forced", "no choice")
 
-OTHER_AGENTS = ("他", "她", "他们", "她们", "老板", "同事", "客户", "老师", "朋友", "he ", "she ", "they ", "boss", "client")
+OTHER_AGENTS = (
+    "他", "她", "他们", "她们", "老板", "同事", "客户", "老师", "朋友",
+    "有人", "别人", "大家", "被", "he ", "she ", "they ", "boss", "client",
+)
 
 UNCERTAIN = ("可能", "也许", "大概", "不确定", "或许", "maybe", "perhaps", "might", "not sure")
 
@@ -195,7 +203,41 @@ def estimate_appraisal(text: str) -> Appraisal:
         control = min(control, 0.30)
 
     norm = -0.5 if any(w in low for w in ("道德", "欺骗", "背叛", "恶心", "违规")) else 0.1
-    relevance = clamp(0.35 + 0.03 * min(len(raw), 18) + 0.15 * stakes, 0.0, 1.0)
+    # Social appraisal is not reducible to a bag of adjectives: being praised,
+    # insulted and cared for have different agency/norm signatures even when
+    # their valence magnitude is similar.  Keep these cues explicit so a
+    # praise and an insult do not both collapse into "neutral".
+    praise_cue = _has_unnegated(low, ("夸", "表扬", "赞美", "认可", "夸奖", "鼓励"))
+    care_cue = _has_unnegated(low, ("关心", "照顾", "安慰", "陪伴", "体贴", "支持", "理解"))
+    insult_cue = _has_unnegated(low, ("骂", "指责", "嘲讽", "侮辱", "冷落", "忽视"))
+    if praise_cue:
+        agency = "other"
+        norm = max(norm, 0.10)
+        stakes = max(stakes, 0.55)
+    if care_cue:
+        agency = "other"
+        norm = max(norm, 0.35)
+        stakes = max(stakes, 0.55)
+        # Care can coexist with illness or a bad day.  Without a small
+        # positivity floor, "我生病了，朋友关心我" cancels out to neutral.
+        if not insult_cue and desirability > -0.20:
+            desirability = max(desirability, 0.28)
+    if insult_cue:
+        agency = "other"
+        control = max(control, 0.70)
+        norm = min(norm, -0.30)
+        stakes = max(stakes, 0.60)
+
+    # Relevance is not a proxy for text length.  The old formula saturated for
+    # almost every Chinese sentence, which made "relevance" look high even for
+    # "I live in Hangzhou".  Keep a modest length term and explicitly discount
+    # questions, which are often about a fact rather than a goal.
+    question_factor = 0.72 if ("?" in raw or "？" in raw) else 1.0
+    relevance = clamp(
+        (0.22 + 0.08 * stakes + 0.012 * min(len(raw), 32)) * question_factor,
+        0.0,
+        1.0,
+    )
     note_parts = ["lexical:" + (",".join(matched[:6]) if matched else "no-cue")]
     if any(word in low for word in FUTURE_CUES):
         note_parts.append("future")
@@ -252,3 +294,12 @@ def _occurrences(text: str, word: str) -> list[int]:
 def _negated(text: str, index: int) -> bool:
     window = text[max(0, index - 2):index]
     return any(n in window for n in NEGATORS)
+
+
+def _has_unnegated(text: str, words: tuple[str, ...]) -> bool:
+    """True when at least one cue occurs outside a short negation window."""
+    return any(
+        not _negated(text, index)
+        for word in words
+        for index in _occurrences(text, word)
+    )

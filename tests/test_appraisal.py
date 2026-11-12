@@ -76,3 +76,23 @@ def test_appraisal_clamps_out_of_range_values():
     assert a.certainty == 0.0
     assert 0.0 <= a.control <= 1.0
     assert a.stakes == 1.0
+
+
+def test_praise_insult_and_care_have_distinct_labels():
+    praise = appraise(estimate_appraisal("同事夸我今天报告讲得好"))
+    insult = appraise(estimate_appraisal("客户当众骂我，说方案很烂"))
+    care = appraise(estimate_appraisal("我生病了，朋友一直关心我"))
+
+    assert praise.label in {"joy", "trust", "contentment"}
+    assert insult.label in {"anger", "disgust", "sadness"}
+    assert care.label in {"trust", "joy", "contentment"}
+    assert praise.valence > 0 and care.valence > 0
+    assert insult.valence < 0
+    assert len({praise.label, insult.label, care.label}) >= 2
+
+
+def test_relevance_is_not_saturated_by_sentence_length():
+    fact = estimate_appraisal("我叫林墨，住在杭州。")
+    event = estimate_appraisal("同事夸我今天报告讲得好")
+    assert fact.goal_relevance < 0.55
+    assert event.goal_relevance > fact.goal_relevance

@@ -6,7 +6,7 @@
 
 一个本地优先、可解释、可复现的「情绪 × 记忆 × 内分泌 × 环境」耦合引擎。
 
-[English](README.en.md) · [产品定义](docs/PRODUCT.md) · [教程](docs/TUTORIAL.md) · [MCP 接入](docs/MCP.md) · [P0–P2 升级](docs/UPGRADE_P0_P2.md) · [目标校准与同类项目](docs/STRATEGY.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [50 轮实测](docs/LOCAL_LLM_50_TEST.md) · [混合门控实测](docs/LOCAL_LLM_MIXED_GATE_TEST.md) · [三项修复复测](docs/LOCAL_LLM_FIXES.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [Held-out 评测](docs/results/heldout_eval.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
+[English](README.en.md) · [产品定义](docs/PRODUCT.md) · [教程](docs/TUTORIAL.md) · [MCP 接入](docs/MCP.md) · [P0–P2 升级](docs/UPGRADE_P0_P2.md) · [目标校准与同类项目](docs/STRATEGY.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [50 轮实测](docs/LOCAL_LLM_50_TEST.md) · [混合门控实测](docs/LOCAL_LLM_MIXED_GATE_TEST.md) · [三项修复复测](docs/LOCAL_LLM_FIXES.md) · [四项修复复测](docs/FACT_EMOTION_FIXES.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [Held-out 评测](docs/results/heldout_eval.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
@@ -237,7 +237,7 @@ python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 | Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
 | Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
 | ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
-| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，126 项测试 + 5 个实验** |
+| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，134 项测试 + 5 个实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
 
@@ -302,6 +302,27 @@ python -m thymos demo
 
 ---
 
+## 支持的中文事实句式
+
+规则抽取器是**保守的兜底**，不是通用中文信息抽取。当前明确覆盖的高价值句式包括：
+
+| 事实 | 示例 | 结果 |
+|---|---|---|
+| 姓名 | `我叫林墨` / `我的名字是林墨` | `name=林墨` |
+| 现居 / 来源 | `我住在杭州` / `我从恩施来上海` | `city=上海`，`hometown=恩施` |
+| 地址 | `地址是上海市徐汇区` | `address=上海市徐汇区`，并推出 `city=上海` |
+| 职业 | `我是软件工程师` / `我做软件` | `job=软件工程师` / `job=软件` |
+| 项目 | `我在做一个叫「潮汐」的项目` / `他的项目叫 piko` | `project=潮汐` / `project=piko` |
+| 家人 / 家事 | `我妹下个月结婚` | `family=妹`，`family_event=我妹下个月结婚` |
+| 过敏 / 忌口 | `我对花生过敏` / `香菜不要` | `allergy=花生` / `food_dislike=香菜` |
+| 饮食偏好 / 事件 | `我喜欢吃火锅` / `今天吃火锅` | `food_like=火锅` / `food_event=火锅` |
+| 健康事件 | `昨天去看了牙` | `health_event=看牙` |
+| 作息 / 咖啡 | `晚上十一点前睡` / `咖啡不加糖` | `sleep=十一点前` / `coffee_sugar=不加糖` |
+
+没有命中的句子不会凭空生成事实；需要更高覆盖率时，用 `LLMFactExtractor`（见 [docs/INTEGRATION.md](docs/INTEGRATION.md)）把模型抽取结果写入同一个 `FactStore`。句式覆盖与边界会随测试扩充，当前 134 项测试中有专门的中文事实回归。
+
+---
+
 ## 设计原则
 
 1. **本地优先。** 默认不联网；只有显式启用天气时才发送粗略经纬度。没有账号、没有遥测。
@@ -356,7 +377,7 @@ src/thymos/
   dashboard.html  零依赖可视化面板
   cli.py          命令行
 experiments/      五个实验 + 检索基线 + 回放 harness + held-out 评测
-tests/             126 项测试
+tests/             134 项测试
 docs/             教程、研究、设计、实验、命名、路线图
 ```
 
@@ -372,7 +393,7 @@ docs/             教程、研究、设计、实验、命名、路线图
 
 ## 路线图
 
-- **v0.3.0（当前）** 控制平面 MVP：意图路由、情绪门控、事实/情景/图/摘要四算子、预算规划、审计轨迹、`MemoryBackend` 协议；126 项测试。
+- **v0.3.0（当前）** 控制平面 MVP：意图路由、情绪门控、事实/情景/图/摘要四算子、预算规划、审计轨迹、`MemoryBackend` 协议；134 项测试。
 - **v0.3.x** 外部 benchmark 强基线、Mem0/Graphiti 参考适配器、多租户 SQLite、静态加密/保留期、审计 UI。
 - **v0.4** 参数敏感性分析、个体化校准、更多环境变量（空气质量、噪声、社交密度）。
 - **v1.0** 开放基准、社区治理、稳定 API、隐私与安全审计。

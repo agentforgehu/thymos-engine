@@ -6,7 +6,7 @@
 
 A local-first, inspectable memory control plane that couples forgetting curves, appraisal-based affect, endocrine modulation, and real-world environment.
 
-[中文](README.md) · [Product definition (Chinese)](docs/PRODUCT.md) · [Tutorial (Chinese)](docs/TUTORIAL.md) · [MCP (Chinese)](docs/MCP.md) · [P0–P2 upgrade (Chinese)](docs/UPGRADE_P0_P2.md) · [Strategy and landscape (Chinese)](docs/STRATEGY.md) · [Research](docs/RESEARCH.md) · [Design](docs/DESIGN.md) · [Experiments](docs/EXPERIMENTS.md) · [Evaluation (Chinese)](docs/EVALUATION.md) · [Naming](docs/NAMING.md) · [Roadmap](docs/ROADMAP.md) · [Three-fix retest (Chinese)](docs/LOCAL_LLM_FIXES.md)
+[中文](README.md) · [Product definition (Chinese)](docs/PRODUCT.md) · [Tutorial (Chinese)](docs/TUTORIAL.md) · [MCP (Chinese)](docs/MCP.md) · [P0–P2 upgrade (Chinese)](docs/UPGRADE_P0_P2.md) · [Strategy and landscape (Chinese)](docs/STRATEGY.md) · [Research](docs/RESEARCH.md) · [Design](docs/DESIGN.md) · [Experiments](docs/EXPERIMENTS.md) · [Evaluation (Chinese)](docs/EVALUATION.md) · [Naming](docs/NAMING.md) · [Roadmap](docs/ROADMAP.md) · [Three-fix retest (Chinese)](docs/LOCAL_LLM_FIXES.md) · [Four-fix retest (Chinese)](docs/FACT_EMOTION_FIXES.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
@@ -151,7 +151,7 @@ These validate **internal consistency**, not human psychology. See [docs/EXPERIM
 | Letta / MemGPT | hierarchical context | context eviction | — | — | — | partial |
 | Generative Agents | memory stream | recency decay | simple | — | — | yes |
 | ALMA / WASABI | — | — | appraisal + PAD | — | — | partial |
-| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **126 tests + 5 experiments** |
+| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **134 tests + 5 experiments** |
 
 Thymos does not compete on memory-recall benchmarks. It competes on **dynamical coherence, inspectability and reproducibility**.
 

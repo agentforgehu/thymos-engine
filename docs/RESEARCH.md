@@ -380,7 +380,7 @@ ALMA 与 WASABI 证明了 appraisal + PAD + 衰减在虚拟人中可行；但它
 | 内分泌 | 基本缺失 | 8 变量 + HPA 级联 + 昼夜节律 |
 | 环境 | 基本缺失 | 天气/光照/季节/地点，效应有界 |
 | 再巩固 | 基本缺失 | 提取后可改写窗口 |
-| 可复现 | 少见 | 确定性 + 126 项测试 + 5 个实验 |
+| 可复现 | 少见 | 确定性 + 134 项测试 + 5 个实验 |
 | 可解释 | 部分 | 每次检索给出 components |
 
 Thymos 不宣称比这些系统“更强”。它补的是**动力学与可解释性**这一块，且明确是研究沙盒。
@@ -412,7 +412,7 @@ Thymos 不宣称比这些系统“更强”。它补的是**动力学与可解�
 6. Cepeda, N. J., Pashler, H., Vul, E., Wixted, J. T., & Rohrer, D. (2006). Distributed practice in verbal recall tasks: A review and quantitative synthesis. *Psychological Bulletin*, 132(3), 354–380. https://doi.org/10.1037/0033-2909.132.3.354
 7. Roediger, H. L., & Karpicke, J. D. (2006). Test-enhanced learning: Taking memory tests improves long-term retention. *Psychological Science*, 17(3), 249–255. https://doi.org/10.1111/j.1467-9280.2006.01693.x
 8. Nader, K., Schafe, G. E., & LeDoux, J. E. (2000). Fear memories require protein synthesis in the amygdala for reconsolidation after retrieval. *Nature*, 406, 722–726. https://doi.org/10.1038/35021052
-9. McGaugh, J. L. (2000). Memory—a century of consolidation. *Science*, 287(5451), 248–251. https://doi.org/10.1126/science.287.5451.248
+9. McGaugh, J. L. (2000). Memory—a century of consolidation. *Science*, 287(5451), 248–251. https://doi.org/10.1134/science.287.5451.248
 10. Rasch, B., & Born, J. (2013). About sleep's role in memory. *Physiological Reviews*, 93(2), 681–766. https://doi.org/10.1152/physrev.00032.2012
 11. Anderson, J. R., Bothell, D., Byrne, M. D., Douglass, S., Lebiere, C., & Qin, Y. (2004). An integrated theory of the mind. *Psychological Review*, 111(4), 1036–1060. https://doi.org/10.1037/0033-295X.111.4.1036
 12. Open Spaced Repetition. *FSRS4Anki: The Algorithm*. https://github.com/open-spaced-repetition/fsrs4anki/wiki/The-Algorithm
@@ -431,7 +431,7 @@ Thymos 不宣称比这些系统“更强”。它补的是**动力学与可解�
 25. Sapolsky, R. M., Romero, L. M., & Munck, A. U. (2000). How do glucocorticoids influence stress responses? *Endocrine Reviews*, 21(1), 55–89. https://doi.org/10.1210/edrv.21.1.0390
 26. de Kloet, E. R., Joëls, M., & Holsboer, F. (2005). Stress and the brain: From adaptation to disease. *Nature Reviews Neuroscience*, 6, 463–475. https://doi.org/10.1038/nrn1683
 27. Joëls, M., Fernandez, G., & Roozendaal, B. (2011). Stress and emotional memory: A matter of timing. *Trends in Cognitive Sciences*, 15(6), 280–288. https://doi.org/10.1016/j.tics.2011.04.005
-28. Cahill, L., & McGaugh, J. L. (1998). Mechanisms of emotional arousal and lasting declarative memory. *Trends in Neurosciences*, 21(7), 294–299. https://doi.org/10.1016/S0166-2236(98)01265-8
+28. Cahill, L., & McGaugh, J. L. (1998). Mechanisms of emotional arousal and lasting declarative memory. *Trends in Neurosciences*, 21(7), 294–299. https://doi.org/10.1016/S0166-2236(98)01345-8
 29. Arnsten, A. F. T. (2009). Stress signalling pathways that impair prefrontal cortex structure and function. *Nature Reviews Neuroscience*, 10, 410–422. https://doi.org/10.1038/nrn2648
 30. Schultz, W. (1998). Predictive reward signal of dopamine neurons. *Journal of Neurophysiology*, 80(1), 1–27. https://doi.org/10.1152/jn.1998.80.1.1
 31. Young, S. N. (2007). How to increase serotonin in the human brain without drugs. *Journal of Psychiatry & Neuroscience*, 32(6), 394–399. https://pubmed.ncbi.nlm.nih.gov/18076562/
@@ -446,7 +446,7 @@ Thymos 不宣称比这些系统“更强”。它补的是**动力学与可解�
 40. Rosenthal, N. E., Sack, D. A., Gillin, J. C., et al. (1984). Seasonal affective disorder: A description of the syndrome and preliminary findings with light therapy. *Archives of General Psychiatry*, 41(1), 72–80. https://doi.org/10.1001/archpsyc.1984.01790120076008
 41. Anderson, C. A. (1989). Temperature and aggression: Ubiquitous effects of heat on occurrence of human violence. *Psychological Bulletin*, 106(1), 74–96. https://doi.org/10.1037/0033-2909.106.1.74
 42. Hancock, P. A., & Vasmatzidis, I. (2003). Effects of heat stress on cognitive performance: The current state of knowledge. *International Journal of Hyperthermia*, 19(3), 355–372. https://doi.org/10.1080/0265673021000054630
-43. de Dear, R. J., & Brager, G. S. (2002). Thermal comfort in naturally ventilated buildings: Revisions to ASHRAE Standard 55. *Energy and Buildings*, 34(6), 549–561. https://doi.org/10.1016/S0378-7788(01)00126-8
+43. de Dear, R. J., & Brager, G. S. (2002). Thermal comfort in naturally ventilated buildings: Revisions to ASHRAE Standard 55. *Energy and Buildings*, 34(6), 549–561. https://doi.org/10.1016/S0378-7788(01)00134-8
 44. Open-Meteo. *Weather API Documentation*. https://open-meteo.com/en/docs
 45. Park, J. S., O'Brien, J. C., Cai, C. J., Morris, M. R., Liang, P., & Bernstein, M. S. (2023). Generative Agents: Interactive simulacra of human behavior. *UIST '23*. https://arxiv.org/abs/2304.03442
 46. Packer, C., Wooders, S., Lin, K., et al. (2023). MemGPT: Towards LLMs as operating systems. https://arxiv.org/abs/2310.08560

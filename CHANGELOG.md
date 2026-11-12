@@ -11,13 +11,17 @@
 - 同类项目对照：MemoryBank、emotional-memory、YourMemory、OpenFeelz、MyPersona、Memary、Mem0、MemoryOS、MemOS、Letta、Graphiti、A-MEM、HippoRAG、MemU、MemEmo。
 - `docs/LOCAL_LLM_MIXED_GATE_TEST.md`：本地 35B 的 65 轮混合查询长测与四门控消融。27/27 探针、8/8 混合意图、24/24 门控对照全部命中；结论是未观察到门控误伤事实，代价主要是上下文长度与更长回复。
 - `docs/LOCAL_LLM_FIXES.md`：事实预算、饮食/健康事件抽取、情绪标签与压力动力学三项修复的本地 35B 复测。65 轮 0 模型错误、整体召回 96.3%、混合意图 100%、0 旧事实污染。
+- `docs/FACT_EMOTION_FIXES.md`：事实按查询裁剪、中文句式、社交情绪与纯事实意图四项修复的 30 轮本地 35B 复测。10/10 探针、0 旧事实污染、0 模型错误；事实块在 300 字符预算下占 14–22%。
+- 中文事实句式覆盖：`我从恩施来上海`、`做软件`、`他的项目叫 piko`、`我妹下个月结婚`、`香菜不要`；README 新增“支持的中文事实句式”表。
 
 ### Fixed
 
 - `AgentMemory.observe`：即使宿主用 `min_importance=0` 保留问句，也不再从问句学习结构化事实，避免“我喝咖啡加糖吗？”被写成 `咖啡糖=加糖`。
-- `FactStore.render`：按查询谓词选择事实，事实块默认上限 35% 预算；超限 `break` 而不是 `continue`，不再把整份档案倒进上下文。
+- `FactStore.render`：按查询谓词选择事实；姓名只在被明确询问时作为锚点，项目问题不再附带姓名；未命中查询只给一行“其他已知”摘要，不再全量展开。事实块默认上限 35% 预算。
 - 事实抽取新增 `food_like`、`food_dislike`、`food_event`、`health_event`；问句不写偏好/事件。
-- `appraise`：移除 `goal_relevance >= 0.65 -> anticipation` 的兜底；中性事实保持 `neutral`，未来线索才进入 `anticipation`，未来 + 不确定进入 `anxiety`/`neutral`。
+- `appraise`：移除 `goal_relevance >= 0.65 -> anticipation` 的兜底；中性事实保持 `neutral`，未来线索才进入 `anticipation`，未来 + 不确定进入 `anxiety`/`neutral`。新增夸奖 / 责骂 / 关心三类社交评价线索，避免明显事件全部塌缩为 `neutral`。
+- `goal_relevance`：不再随句子长度饱和；长度项封顶，疑问句打折。
+- `classify_intent`：`他住哪`、`他叫什么` 等第三人称纯事实问句直接判 `factual`，不再落入 `mixed`。
 - `AffectDynamics`：压力增加有上限，正面事件可降低压力；静息目标下调，避免 30 轮温和事件把压力推到 0.8。
 - `trim_to_tokens`：省略号不再把结果顶过 token 硬上限。
 
@@ -25,7 +29,7 @@
 
 - `README.md` 导航加入 `docs/STRATEGY.md`。
 - `docs/ROADMAP.md` 增加标签说明：项目阶段、问题优先级、科学验证不要混用。
-- 测试总数从 117 增至 126（新增事实相关性、事件抽取、标签与压力回归）。
+- 测试总数从 117 增至 134（新增事实相关性、中文句式、社交情绪与意图分类回归）。
 
 ## [0.3.0] — 2026-11-13
 

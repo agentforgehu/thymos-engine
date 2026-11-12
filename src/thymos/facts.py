@@ -41,6 +41,8 @@ MULTI_VALUE_PREDICATES = frozenset(
         "pet_breed",
         "project",
         "friend",
+        "family",
+        "family_event",
         "food_like",
         "food_dislike",
         "food_event",
@@ -59,6 +61,9 @@ _PREDICATE_LABELS = {
     "project": "项目",
     "deadline": "截止",
     "job": "职业",
+    "hometown": "来自",
+    "family": "家人",
+    "family_event": "家事",
     "friend": "朋友",
     "sleep": "入睡",
     "wake": "起床",
@@ -88,26 +93,32 @@ _PRIORITY = {
     "health_event": 4,
     "food_event": 3,
     "job": 4,
+    "hometown": 6,
+    "family": 5,
+    "family_event": 5,
     "friend": 3,
 }
 
 _QUERY_KEYWORDS = {
-    "name": ("名字", "叫什么", "姓名"),
-    "city": ("住", "城市", "哪里", "哪儿", "现居", "搬"),
-    "address": ("地址", "住址", "住哪", "哪里", "哪儿"),
+    "name": ("名字", "叫什么", "姓名", "是谁"),
+    "city": ("住哪", "住在哪", "城市", "哪个城市", "现居", "搬", "哪里", "哪儿"),
+    "address": ("地址", "住址", "门牌", "哪里", "哪儿"),
     "pet_name": ("猫", "狗", "宠物", "豆豆"),
     "pet_breed": ("猫", "狗", "宠物", "品种"),
     "allergy": ("过敏", "忌口", "不能吃"),
-    "project": ("项目", "潮汐", "工作"),
+    "project": ("项目", "项目名", "项目叫什么", "潮汐", "piko"),
     "deadline": ("交付", "截止", "deadline", "日期"),
-    "job": ("职业", "工作", "做什么", "开发者"),
+    "job": ("职业", "工作", "做什么工作", "干什么", "职位", "开发者", "工程师", "软件"),
+    "hometown": ("老家", "家乡", "哪里人", "来自", "从哪"),
+    "family": ("家人", "妹妹", "姐姐", "哥哥", "弟弟", "妹", "姐", "哥", "弟", "父母", "爸", "妈"),
+    "family_event": ("结婚", "婚礼", "家事", "妹妹", "哥哥", "姐姐", "弟弟", "妹", "姐", "哥", "弟", "住院", "手术"),
     "friend": ("朋友", "阿岚"),
     "sleep": ("睡", "作息", "几点"),
     "wake": ("起", "起床", "作息", "几点"),
     "coffee_sugar": ("咖啡", "糖"),
     "coffee_type": ("咖啡", "美式", "拿铁"),
-    "food_like": ("吃", "爱吃", "喜欢", "口味", "火锅", "食物"),
-    "food_dislike": ("吃", "不吃", "忌口", "食物"),
+    "food_like": ("爱吃", "喜欢", "口味", "火锅", "食物"),
+    "food_dislike": ("不吃", "忌口", "不要", "食物"),
     "food_event": ("吃", "火锅", "饭", "饮食", "最近吃"),
     "health_event": ("牙", "看牙", "医院", "体检", "健康", "手术", "医生"),
 }
@@ -172,6 +183,8 @@ def _event_offset(text: str, at: float) -> float | None:
         return at + 2 * _FUTURE_DAY
     if "下周" in text or "下个星期" in text or "下星期" in text:
         return at + 7 * _FUTURE_DAY
+    if "下个月" in text or "下月" in text:
+        return at + 30 * _FUTURE_DAY
     return None
 
 
@@ -244,18 +257,25 @@ def extract_candidates(text: str, at: float) -> list[ExtractedFact]:
         ("name", r"我叫([^\s，。,.!?！？]{1,12})"),
         ("name", r"我的名字(?:是|叫)([^\s，。,.!?！？]{1,12})"),
         ("city", r"(?:住在|现在在|目前在)([^\s，。,.!?！？]{2,12})"),
+        ("city", r"我从[^\s，。,.!?！？]{2,12}(?:来|到)([^\s，。,.!?！？]{2,12})"),
+        ("city", r"(?:在|去)([^\s，。,.!?！？]{2,12})(?:工作|上班|生活)"),
+        ("hometown", r"我从([^\s，。,.!?！？]{2,12})(?:来|到)"),
         ("address", r"(?:地址是|住址是)([^。；;\n]+)"),
         ("pet_name", r"(?:养了一只(?:猫|狗)[，,]\s*叫|我的(?:猫|狗)叫)([^，。；;\n]{1,12})"),
         ("pet_breed", r"是(橘猫|狸花猫|黑猫|白猫|布偶猫|柴犬|金毛|柯基)"),
         ("allergy", r"对([^，。；;\n]{1,12})过敏"),
-        ("project", r"(?:在做(?:一个)?叫|项目叫)[「\"]?([^」\"，。；;\n]{1,20})[」\"]?(?:的)?项目"),
+        ("project", r"(?:在做(?:一个)?叫|项目(?:名)?叫|项目是)[「\"']?([^」\"'，。；;\n]{1,20})[」\"']?(?:的)?(?:项目)?"),
         ("deadline", r"(\d{1,2}\s*月\s*\d{1,2}\s*日?)\s*(?:前)?(?:要)?交付"),
         ("job", r"我是([^，。；;\n]{1,16}(?:开发者|工程师|设计师|老师|学生))"),
+        ("job", r"(?:做|从事)([^，。；;\n]{0,16}?(?:工程师|开发者|程序员|设计师|运营|产品经理|销售|老师|医生|律师|会计|软件|开发))"),
+        ("family", r"我(妹妹|姐姐|哥哥|弟弟|妹|姐|哥|弟|爸爸|妈妈|父亲|母亲|女儿|儿子|老公|老婆)"),
         ("friend", r"朋友叫([^，。；;\n]{1,12})"),
         ("sleep", r"晚上(?:一般)?([^，。；;\n]{1,12})睡"),
         ("wake", r"早上(?:一般)?([^，。；;\n]{1,12})起"),
         ("food_like", r"(?<!不)(?:喜欢|爱吃|常吃)吃?([^，。；;\n]{1,12})"),
         ("food_dislike", r"(?:不喜欢|不爱吃|不吃)吃?([^，。；;\n]{1,12})"),
+        ("food_dislike", r"(?:不要|不吃|忌口)(香菜|葱|蒜|辣|海鲜|花生|芒果|牛奶|鸡蛋|牛肉|羊肉)"),
+        ("food_dislike", r"(香菜|葱|蒜|辣|海鲜|花生|芒果|牛奶|鸡蛋|牛肉|羊肉)(?:不要|不吃|忌口)"),
     ]
     for predicate, pattern in rules:
         # Preference/event extraction is only safe for assertions.  A question
@@ -280,6 +300,15 @@ def extract_candidates(text: str, at: float) -> list[ExtractedFact]:
             r"(?:去)?(看(?:了)?牙|洗牙|补牙|拔牙|看医生|体检|做手术)", text
         ):
             add("health_event", match.group(1).replace("了", ""), event_at=event_at)
+        for match in re.finditer(
+            r"我(妹妹|姐姐|哥哥|弟弟|妹|姐|哥|弟|爸爸|妈妈|家人)[^。；;\n]{0,24}"
+            r"(结婚|婚礼|生孩子|住院|手术|搬家|考试|生日)",
+            text,
+        ):
+            # A future family event is known now ("my sister is getting
+            # married next month").  Keep it active immediately; the value
+            # carries the time expression, so a query can still see it.
+            add("family_event", match.group(0))
 
     # "考虑搬去上海" and "如果搬去上海" are possibilities, not a move.  A
     # decision can be future-dated; the old city stays current until then.
@@ -556,6 +585,66 @@ class FactStore:
                 closed += 1
         return closed
 
+    def match_predicates(self, query: str = "", *, at: float | None = None) -> list[str]:
+        """Return only the predicates a query actually asks about.
+
+        This is public because the context renderer uses the same selection to
+        avoid showing an episodic copy of a fact that is already in the fact
+        block.  It is deliberately conservative: a weak match falls back to a
+        single identity anchor rather than the full profile.
+        """
+        at = float(at or 0.0)
+        q = (query or "").strip()
+        active = self.active(at)
+        if not active:
+            return []
+        grouped: dict[str, list[Fact]] = {}
+        for fact in active:
+            grouped.setdefault(fact.predicate, []).append(fact)
+
+        summary_query = any(
+            word in q for word in ("总结", "记得", "关于我", "我是谁", "介绍", "全部", "所有", "档案", "资料")
+        )
+        matched = {
+            predicate
+            for predicate in grouped
+            if any(keyword in q for keyword in _QUERY_KEYWORDS.get(predicate, ()))
+        }
+
+        if summary_query or not q:
+            return sorted(
+                grouped,
+                key=lambda p: (_PRIORITY.get(p, 0), max(f.valid_from for f in grouped[p])),
+                reverse=True,
+            )[:6]
+        if matched:
+            # An explicit address question should not also drag in the city
+            # line; "地址" is more specific than "住哪".
+            if "address" in matched and any(word in q for word in ("地址", "住址", "门牌")):
+                matched.discard("city")
+            selected = sorted(
+                matched,
+                key=lambda p: (_PRIORITY.get(p, 0), max(f.valid_from for f in grouped[p])),
+                reverse=True,
+            )[:5]
+            # A name is a useful anchor only when it is the thing asked about.
+            # "他的项目叫什么" should return the project, not project + name;
+            # "我叫什么，对什么过敏" must keep both name and allergy.
+            name_focus = any(
+                phrase in q for phrase in ("名字", "姓名", "我叫什么", "我是谁")
+            ) or (
+                "叫什么" in q
+                and not any(
+                    word in q
+                    for word in ("项目", "职业", "工作", "住", "城市", "过敏", "地址")
+                )
+            )
+            if "name" in selected and not name_focus:
+                selected = [p for p in selected if p != "name"]
+            return selected
+        # No lexical match: show one identity anchor, not a profile dump.
+        return [p for p in ("name", "city") if p in grouped][:1]
+
     def render(
         self,
         query: str = "",
@@ -589,33 +678,14 @@ class FactStore:
             grouped.setdefault(fact.predicate, []).append(fact)
 
         summary_query = any(
-            word in q for word in ("总结", "记得", "关于我", "我是谁", "介绍", "全部", "所有")
+            word in q for word in ("总结", "记得", "关于我", "我是谁", "介绍", "全部", "所有", "档案", "资料")
         )
         matched = {
             predicate
             for predicate in grouped
             if any(keyword in q for keyword in _QUERY_KEYWORDS.get(predicate, ()))
         }
-
-        if summary_query or not q:
-            selected = sorted(
-                grouped,
-                key=lambda p: (_PRIORITY.get(p, 0), max(f.valid_from for f in grouped[p])),
-                reverse=True,
-            )[:6]
-        elif matched:
-            selected = sorted(
-                matched,
-                key=lambda p: (_PRIORITY.get(p, 0), max(f.valid_from for f in grouped[p])),
-                reverse=True,
-            )[:5]
-            # A name is a useful anchor, but only if it does not displace the
-            # predicate the user actually asked about.
-            if "name" in grouped and "name" not in selected and len(selected) < 3:
-                selected.append("name")
-        else:
-            # No lexical match: show a minimal identity anchor, not a dump.
-            selected = [p for p in ("name", "city") if p in grouped][:1]
+        selected = self.match_predicates(q, at=at)
 
         lines = ["## 当前事实（结构化，优先于情景记忆）"]
         for predicate in selected:
@@ -647,6 +717,23 @@ class FactStore:
 
         if len(lines) == 1:
             return ""
+        # If nothing matched, say that other facts exist without expanding
+        # them.  This is a one-line digest, not a second full profile.
+        if not matched and not summary_query and q:
+            others = [
+                predicate
+                for predicate in sorted(
+                    grouped,
+                    key=lambda p: _PRIORITY.get(p, 0),
+                    reverse=True,
+                )
+                if predicate not in selected
+            ]
+            if others:
+                labels = "、".join(_PREDICATE_LABELS.get(p, p) for p in others[:4])
+                digest = f"- 其他已知：{labels}（未展开）"
+                if not max_chars or len("\n".join(lines + [digest])) <= max_chars:
+                    lines.append(digest)
         return "\n".join(lines)
 
     def to_list(self) -> list[dict[str, Any]]:

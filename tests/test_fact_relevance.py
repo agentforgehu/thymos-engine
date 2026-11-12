@@ -55,3 +55,51 @@ def test_food_and_health_events_are_extracted():
 
 def test_food_question_does_not_become_a_preference():
     assert extract_facts("我喜欢吃火锅吗？") == []
+
+
+def test_small_budget_fact_block_is_query_specific():
+    store = FactStore()
+    at = 1000.0
+    for offset, text in enumerate(
+        ("我叫林墨。", "我住在杭州。", "我在做一个叫「潮汐」的项目。", "我是软件工程师。")
+    ):
+        store.observe(text, at + offset * 10)
+
+    name = store.render("他叫什么？", at=1100, max_chars=300)
+    project = store.render("他的项目叫什么？", at=1100, max_chars=300)
+    job = store.render("他做什么工作？", at=1100, max_chars=300)
+
+    assert "林墨" in name
+    assert "潮汐" not in name and "软件工程师" not in name
+    assert "潮汐" in project
+    assert "软件工程师" not in project and "杭州" not in project
+    assert "软件工程师" in job
+    assert "潮汐" not in job
+
+
+def test_unmatched_query_gets_one_line_digest_not_full_dump():
+    store = _store()
+    text = store.render("今天天气怎么样？", at=2000, max_chars=300)
+    assert "其他已知" in text
+    assert "潮汐" not in text
+    assert "花生" not in text
+
+
+def test_chinese_third_person_and_event_patterns():
+    assert dict(extract_facts("我从恩施来上海，做软件。"))["city"] == "上海"
+    assert dict(extract_facts("我从恩施来上海，做软件。"))["hometown"] == "恩施"
+    assert dict(extract_facts("我从恩施来上海，做软件。"))["job"] == "软件"
+    assert dict(extract_facts("他的项目叫 piko。"))["project"] == "piko"
+    family = dict(extract_facts("我妹下个月结婚。"))
+    assert family["family"] == "妹"
+    assert "结婚" in family["family_event"]
+    assert dict(extract_facts("香菜不要。"))["food_dislike"] == "香菜"
+
+
+def test_family_query_does_not_fall_back_to_city():
+    store = FactStore()
+    store.observe("我住在杭州。", 1000)
+    store.observe("我妹下个月结婚。", 1010)
+    text = store.render("我妹有什么事？", at=1020, max_chars=300)
+    assert "妹" in text and "结婚" in text
+    assert "杭州" not in text
