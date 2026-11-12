@@ -73,6 +73,7 @@
 ### Added
 
 - `docs/EVALUATION.md`：客服/陪伴型 Bot 的任务级验证协议、样本量与 go/no-go 标准。
+- `experiments/replay_harness.py`：五种记忆条件的多会话回放骨架；示例数据在 `experiments/data/replay_demo.jsonl`。
 
 ### Planned
 

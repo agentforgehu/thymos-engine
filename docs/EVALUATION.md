@@ -214,7 +214,39 @@ LLM judge 可以降低评分成本，但很容易被文风、长度、讨好倾�
 
 只有离线回放显示明确方向、影子模式没有安全/成本问题，才值得进入正式的大样本 A/B。否则应该先修记忆质量，而不是加更多情绪层。
 
-## 10. 当前项目能说什么、不能说什么
+## 10. 回放 harness
+
+仓库里已经有一个最小可运行版本：`experiments/replay_harness.py`。它把同一批 case 分别喂给五种条件，默认输出每条回复、成功/假记忆标记、prompt 字符数和延迟。
+
+先跑通管线：
+
+```bash
+python experiments/replay_harness.py --llm mock --out .work/replay_demo.json
+```
+
+`mock` 只验证数据、条件、评分和输出，不代表生成质量。接真实模型：
+
+```bash
+# Ollama
+python experiments/replay_harness.py --llm ollama --model qwen2.5:7b
+
+# DeepSeek + 中文 embedding
+python experiments/replay_harness.py --llm deepseek --embedding ollama --embedding-model bge-m3
+```
+
+数据格式是 JSONL，每个 case 包含 `sessions`、`probes`、`profile`、`start`。`probes[].after_session` 表示“只使用前 N 个 session 作为历史”；探针自己的问题永远不进入历史。示例数据在 `experiments/data/replay_demo.jsonl`。
+
+关键实现约束：
+
+- 每个条件使用同一个 LLM、同一段 system prompt、同一个字符预算（`--char-budget`，默认 6000）。字符预算不是精确 token，但足以做同预算比较；正式实验应换成模型的 tokenizer。
+- `full_transcript` 只保留预算内最近的历史；`summary` 在早期探针上只用可见历史，避免 case 级摘要泄露未来；`rag` 用余弦 Top-k；`thymos` 按 session 顺序重放，只看到探针之前的历史。
+- `--record-assistant` 可选地把助手承诺/动作写进 Thymos 记忆。默认关闭，因为把模型幻觉写进长期记忆会污染后续所有轮次；做“承诺跟踪”实验时应打开。
+- 评分默认是子串匹配（`expect` / `forbid`），适合 smoke test 和事实探针，不适合评价语气、共情和复杂推理。正式实验应把 `reply` 导出，用人工 rubric 或校准过的 LLM judge 复评。
+- 每条结果保留 `context_label`、`prompt_chars`、`latency_ms`、`error`；跑真实模型时先看 `errors` 和 `prompt_chars`，再看 `success`。
+
+这个 harness 的定位是 L3 的骨架：它能防止“没有对照”“未来泄露”“token 不一致”这三类低级错误，但不能替代线上 A/B。示例数据是合成的，不能拿来宣称效果。
+
+## 11. 当前项目能说什么、不能说什么
 
 可以说：
 

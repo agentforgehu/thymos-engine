@@ -223,6 +223,8 @@ Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动
 
 完整协议、样本量计算、对照组设计和 go/no-go 标准见 [docs/EVALUATION.md](docs/EVALUATION.md)。
 
+仓库带一个最小回放骨架 [`experiments/replay_harness.py`](experiments/replay_harness.py)：同一批多会话 case 分别跑无记忆、全量 transcript、摘要、向量 RAG、Thymos，输出成功/假记忆标记、prompt 字符数和延迟。先用 `--llm mock` 验证管线，再接真实模型。
+
 ---
 
 ## 实验一瞥
@@ -232,6 +234,7 @@ Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动
 ```bash
 python experiments/run_experiments.py
 python experiments/retrieval_benchmark.py --embedding hash
+python experiments/replay_harness.py --llm mock
 ```
 
 指标写入 [`docs/experiments.json`](docs/experiments.json)，图写入 [`docs/figures/`](docs/figures/)。
@@ -314,7 +317,7 @@ src/thymos/
   api.py          标准库 HTTP API
   dashboard.html  零依赖可视化面板
   cli.py          命令行
-experiments/      五个实验 + 中文检索基线
+experiments/      五个实验 + 检索基线 + 回放 harness
 tests/            80 项测试
 docs/             教程、研究、设计、实验、命名、路线图
 ```
