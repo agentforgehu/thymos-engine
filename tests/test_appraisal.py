@@ -32,6 +32,18 @@ def test_novel_neutral_event_is_surprise():
     assert e.label == "surprise"
 
 
+def test_neutral_facts_do_not_become_anticipation():
+    e = appraise(estimate_appraisal("我叫林墨，住在杭州。"))
+    assert e.label == "neutral"
+
+
+def test_future_decision_is_anticipation_but_uncertain_move_is_anxiety():
+    decided = appraise(estimate_appraisal("我决定搬去上海了，下周搬。"))
+    uncertain = appraise(estimate_appraisal("我最近在考虑搬去上海，还在犹豫。"))
+    assert decided.label == "anticipation"
+    assert uncertain.label == "anxiety"
+
+
 def test_text_negation_flips_valence():
     positive = estimate_appraisal("今天很开心")
     negative = estimate_appraisal("今天不开心")

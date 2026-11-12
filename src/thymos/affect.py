@@ -67,7 +67,15 @@ class AffectDynamics:
         # Mood is slow, but not inert: a salient event moves it a little at once
         # and the rest is integrated by `step`.
         s.mood_valence = clamp(s.mood_valence + self.config.mood_reactivity * dv, -1.0, 1.0)
-        s.stress = clamp(s.stress + max(0.0, -dv) * 0.55 + max(0.0, da) * 0.12, 0.0, 1.0)
+        # Stress is not a ratchet.  Negative events add a bounded load, while
+        # positive events actively relieve it; otherwise a run of mild
+        # frustrations can drift to an implausible 0.8 without any acute event.
+        stress_delta = (
+            max(0.0, -dv) * 0.35
+            + max(0.0, da) * 0.06
+            - max(0.0, dv) * 0.18
+        )
+        s.stress = clamp(s.stress + stress_delta, 0.0, 1.0)
         s.fatigue = clamp(s.fatigue + max(0.0, da) * 0.05, 0.0, 1.0)
         s.dominant_emotion = emotion.label
 
@@ -125,7 +133,11 @@ class AffectDynamics:
         )
 
         # Stress and fatigue.
-        stress_target = clamp(0.10 + 0.28 * max(0.0, -s.mood_valence) + 0.10 * s.mood_arousal, 0.0, 1.0)
+        stress_target = clamp(
+            0.09 + 0.24 * max(0.0, -s.mood_valence) + 0.08 * s.mood_arousal,
+            0.0,
+            1.0,
+        )
         s.stress = clamp(first_order(s.stress, stress_target, dt, self.config.stress_tau_hours), 0.0, 1.0)
         if sleeping:
             s.fatigue = clamp(first_order(s.fatigue, 0.08, dt, 3.0), 0.0, 1.0)

@@ -151,10 +151,11 @@ class MemoryController:
         #    are rendered by the existing engine renderer, but measured here so
         #    the audit can say whether they were present.
         fact_started = time.perf_counter()
+        fact_ratio = getattr(self.engine.config, "fact_budget_ratio", 0.35)
         fact_block = self.engine.facts.render(
             q,
             at=self.engine.now,
-            max_chars=int(budget_chars * 0.45) if budget_chars else None,
+            max_chars=int(budget_chars * fact_ratio) if budget_chars else None,
         )
         fact_count = sum(1 for line in fact_block.splitlines() if line.startswith("- "))
         reports.append(

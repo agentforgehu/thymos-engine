@@ -34,7 +34,19 @@ _PARTICLES = re.compile(r"(?:了|啦|呢|吧|啊|呀|也|还|又|都)+$")
 
 # A single value is the right model for identity/state-like attributes.  These
 # predicates can legitimately hold several values at once.
-MULTI_VALUE_PREDICATES = frozenset({"allergy", "pet_name", "pet_breed", "project", "friend"})
+MULTI_VALUE_PREDICATES = frozenset(
+    {
+        "allergy",
+        "pet_name",
+        "pet_breed",
+        "project",
+        "friend",
+        "food_like",
+        "food_dislike",
+        "food_event",
+        "health_event",
+    }
+)
 _MULTI_SPLIT = re.compile(r"[、,，和及]")
 
 _PREDICATE_LABELS = {
@@ -52,6 +64,10 @@ _PREDICATE_LABELS = {
     "wake": "起床",
     "coffee_sugar": "咖啡糖",
     "coffee_type": "咖啡口味",
+    "food_like": "爱吃",
+    "food_dislike": "不吃",
+    "food_event": "饮食事件",
+    "health_event": "健康事件",
 }
 
 _PRIORITY = {
@@ -67,6 +83,10 @@ _PRIORITY = {
     "deadline": 6,
     "coffee_sugar": 5,
     "coffee_type": 5,
+    "food_like": 4,
+    "food_dislike": 4,
+    "health_event": 4,
+    "food_event": 3,
     "job": 4,
     "friend": 3,
 }
@@ -86,6 +106,10 @@ _QUERY_KEYWORDS = {
     "wake": ("起", "起床", "作息", "几点"),
     "coffee_sugar": ("咖啡", "糖"),
     "coffee_type": ("咖啡", "美式", "拿铁"),
+    "food_like": ("吃", "爱吃", "喜欢", "口味", "火锅", "食物"),
+    "food_dislike": ("吃", "不吃", "忌口", "食物"),
+    "food_event": ("吃", "火锅", "饭", "饮食", "最近吃"),
+    "health_event": ("牙", "看牙", "医院", "体检", "健康", "手术", "医生"),
 }
 
 _HISTORY_QUERY = re.compile(r"以前|之前|原来|过去|历史|搬家前|旧")
@@ -124,6 +148,30 @@ def _future_offset(text: str, at: float) -> float | None:
         return at + 7 * _FUTURE_DAY
     if "下个月" in text or "下月" in text:
         return at + 30 * _FUTURE_DAY
+    return None
+
+
+def _event_offset(text: str, at: float) -> float | None:
+    """Coarse event time for food/health events.
+
+    These are not calendar-grade timestamps; they only keep "yesterday" and
+    "next week" from collapsing into "now".  The fact remains active so a
+    later query can still find it, while the value records the event.
+    """
+    if "昨天" in text:
+        return at - _FUTURE_DAY
+    if "前天" in text:
+        return at - 2 * _FUTURE_DAY
+    if "上周" in text or "上个星期" in text:
+        return at - 7 * _FUTURE_DAY
+    if "今天" in text or "刚刚" in text:
+        return at
+    if "明天" in text:
+        return at + _FUTURE_DAY
+    if "后天" in text:
+        return at + 2 * _FUTURE_DAY
+    if "下周" in text or "下个星期" in text or "下星期" in text:
+        return at + 7 * _FUTURE_DAY
     return None
 
 
@@ -185,6 +233,7 @@ def extract_candidates(text: str, at: float) -> list[ExtractedFact]:
         return []
 
     found: list[ExtractedFact] = []
+    is_question = bool(_QUESTION.search(text))
 
     def add(predicate: str, value: str, *, event_at: float | None = None) -> None:
         value = _clean(value)
@@ -205,10 +254,32 @@ def extract_candidates(text: str, at: float) -> list[ExtractedFact]:
         ("friend", r"朋友叫([^，。；;\n]{1,12})"),
         ("sleep", r"晚上(?:一般)?([^，。；;\n]{1,12})睡"),
         ("wake", r"早上(?:一般)?([^，。；;\n]{1,12})起"),
+        ("food_like", r"(?<!不)(?:喜欢|爱吃|常吃)吃?([^，。；;\n]{1,12})"),
+        ("food_dislike", r"(?:不喜欢|不爱吃|不吃)吃?([^，。；;\n]{1,12})"),
     ]
     for predicate, pattern in rules:
+        # Preference/event extraction is only safe for assertions.  A question
+        # such as "我喜欢吃火锅吗？" must not become a preference.
+        if is_question and predicate in {"food_like", "food_dislike"}:
+            continue
         for match in re.finditer(pattern, text):
             add(predicate, match.group(1))
+
+    if not is_question:
+        event_at = _event_offset(text, at)
+        for match in re.finditer(
+            r"(?:昨天|今天|前天|上周|周末)?(?:去)?吃(?:了)?(?:一顿)?"
+            r"(火锅|烧烤|日料|川菜|粤菜|面条|米饭|饺子|汉堡|披萨|甜品|蛋糕)",
+            text,
+        ):
+            prefix = text[max(0, match.start() - 4) : match.start()]
+            if "喜欢" in prefix or "爱吃" in prefix:
+                continue
+            add("food_event", match.group(1), event_at=event_at)
+        for match in re.finditer(
+            r"(?:去)?(看(?:了)?牙|洗牙|补牙|拔牙|看医生|体检|做手术)", text
+        ):
+            add("health_event", match.group(1).replace("了", ""), event_at=event_at)
 
     # "考虑搬去上海" and "如果搬去上海" are possibilities, not a move.  A
     # decision can be future-dated; the old city stays current until then.
@@ -493,36 +564,62 @@ class FactStore:
         max_chars: int | None = None,
         include_history: bool | None = None,
     ) -> str:
-        """Render active facts, prioritising facts relevant to ``query``.
+        """Render only facts relevant to ``query``, under a hard budget.
 
-        Closed facts are only shown for explicit history questions, so the
-        model does not see "Hangzhou" and "Shanghai" as equally current.
-        Multi-valued predicates are grouped into one line.
+        The previous version sorted all active facts but still printed every
+        one.  At a 900-char context that meant a factual query could receive a
+        full profile dump while the actual answer had little room.  Selection
+        is now explicit:
+
+        * a query about a predicate gets that predicate (plus one anchor);
+        * a general "what do you remember" query gets a compact core profile;
+        * an unrelated query gets at most a name/city anchor, never the store.
         """
         at = float(at or 0.0)
-        q = query or ""
+        q = (query or "").strip()
         if include_history is None:
             include_history = bool(_HISTORY_QUERY.search(q))
 
         active = self.active(at)
-        active.sort(
-            key=lambda f: (
-                _PRIORITY.get(f.predicate, 0)
-                + (4 if any(k in q for k in _QUERY_KEYWORDS.get(f.predicate, ())) else 0),
-                f.valid_from,
-            ),
-            reverse=True,
-        )
+        if not active:
+            return ""
 
-        lines = ["## 当前事实（结构化，优先于情景记忆）"]
         grouped: dict[str, list[Fact]] = {}
         for fact in active:
             grouped.setdefault(fact.predicate, []).append(fact)
-        for predicate, facts in sorted(
-            grouped.items(),
-            key=lambda item: (_PRIORITY.get(item[0], 0), max(f.valid_from for f in item[1])),
-            reverse=True,
-        ):
+
+        summary_query = any(
+            word in q for word in ("总结", "记得", "关于我", "我是谁", "介绍", "全部", "所有")
+        )
+        matched = {
+            predicate
+            for predicate in grouped
+            if any(keyword in q for keyword in _QUERY_KEYWORDS.get(predicate, ()))
+        }
+
+        if summary_query or not q:
+            selected = sorted(
+                grouped,
+                key=lambda p: (_PRIORITY.get(p, 0), max(f.valid_from for f in grouped[p])),
+                reverse=True,
+            )[:6]
+        elif matched:
+            selected = sorted(
+                matched,
+                key=lambda p: (_PRIORITY.get(p, 0), max(f.valid_from for f in grouped[p])),
+                reverse=True,
+            )[:5]
+            # A name is a useful anchor, but only if it does not displace the
+            # predicate the user actually asked about.
+            if "name" in grouped and "name" not in selected and len(selected) < 3:
+                selected.append("name")
+        else:
+            # No lexical match: show a minimal identity anchor, not a dump.
+            selected = [p for p in ("name", "city") if p in grouped][:1]
+
+        lines = ["## 当前事实（结构化，优先于情景记忆）"]
+        for predicate in selected:
+            facts = grouped[predicate]
             label = _PREDICATE_LABELS.get(predicate, predicate)
             values: list[str] = []
             for fact in sorted(facts, key=lambda f: f.valid_from):
@@ -530,17 +627,22 @@ class FactStore:
                     values.append(fact.value)
             line = f"- {label}：{'、'.join(values)}（自 {_iso(min(f.valid_from for f in facts))}）"
             if max_chars and len("\n".join(lines + [line])) > max_chars:
-                continue
+                break
             lines.append(line)
 
         if include_history:
-            old = [fact for fact in self.all() if fact.valid_to is not None]
+            history_predicates = set(selected) if matched or summary_query else set(grouped)
+            old = [
+                fact
+                for fact in self.all()
+                if fact.valid_to is not None and fact.predicate in history_predicates
+            ]
             old.sort(key=lambda f: (f.predicate, f.valid_from))
             for fact in old:
                 label = _PREDICATE_LABELS.get(fact.predicate, fact.predicate)
                 line = f"- 历史-{label}：{fact.value}（至 {_iso(fact.valid_to)}）"
                 if max_chars and len("\n".join(lines + [line])) > max_chars:
-                    continue
+                    break
                 lines.append(line)
 
         if len(lines) == 1:

@@ -1,7 +1,7 @@
 import pytest
 
 from thymos.affect import AffectDynamics
-from thymos.appraisal import appraise
+from thymos.appraisal import appraise, estimate_appraisal
 from thymos.config import Profile, ThymosConfig
 from thymos.endocrine import EndocrineSystem
 from thymos.types import Appraisal
@@ -27,6 +27,25 @@ def test_negative_emotion_raises_stress():
     affect.apply_emotion(appraise(Appraisal(desirability=-0.9, stakes=0.9, goal_relevance=0.9, agency="other", control=0.7)), endo)
     assert affect.state.stress > before
     assert affect.state.dominant_emotion == "anger"
+
+
+def test_positive_event_relieves_stress():
+    affect, endo = make_affect()
+    affect.state.stress = 0.6
+    affect.apply_emotion(
+        appraise(Appraisal(desirability=0.8, stakes=0.5, goal_relevance=0.8)),
+        endo,
+    )
+    assert affect.state.stress < 0.6
+
+
+def test_neutral_turns_do_not_ratchet_stress():
+    affect, endo = make_affect()
+    neutral = appraise(estimate_appraisal("我叫林墨，住在杭州。"))
+    for _ in range(30):
+        affect.apply_emotion(neutral, endo)
+        affect.step(1.0, endo)
+    assert affect.state.stress < 0.25
 
 
 def test_emotion_decays_faster_than_mood():

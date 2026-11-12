@@ -66,6 +66,9 @@ class ThymosConfig:
     activation_weight: float = 0.45
     retrievability_weight: float = 0.55
     reconsolidation_window_min: float = 10.0
+    # Facts are the highest-precision block, but they must not crowd out the
+    # episodic evidence.  At 900 chars this leaves ~315 chars for facts.
+    fact_budget_ratio: float = 0.35
 
     # --- affect ----------------------------------------------------------
     mood_setpoint: float = 0.06

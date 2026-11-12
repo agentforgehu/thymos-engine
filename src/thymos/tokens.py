@@ -37,4 +37,9 @@ def trim_to_tokens(text: str, max_tokens: int) -> str:
             lo = mid
         else:
             hi = mid - 1
-    return text[:lo].rstrip() + "…"
+    trimmed = text[:lo].rstrip()
+    # The ellipsis is cosmetic.  Never let it push the result over the hard
+    # upper bound; when the budget is exactly full, return the bare prefix.
+    if estimate_tokens(trimmed + "…") <= max_tokens:
+        return trimmed + "…"
+    return trimmed

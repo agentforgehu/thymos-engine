@@ -55,7 +55,7 @@ WEIGHTS = {
 
 HIGH_STAKES = (
     "重要", "必须", "截止", "面试", "考试", "老板", "家人", "健康", "钱",
-    "合同", "发布", "上线", "手术", "搬家", "分手", "结婚", "deadline",
+    "合同", "发布", "上线", "手术", "搬家", "搬去", "搬到", "分手", "结婚", "deadline",
     "interview", "exam", "family", "health", "release", "launch", "客户",
 )
 
@@ -73,6 +73,13 @@ UNCERTAIN = ("可能", "也许", "大概", "不确定", "或许", "maybe", "perh
 
 NEGATORS = ("不", "没", "无", "别", "未")
 
+FUTURE_CUES = (
+    "期待", "盼", "等不及", "下周", "明天", "后天", "即将", "马上",
+    "计划", "准备", "决定", "考虑", "犹豫", "将来", "以后", "下次", "周末想", "想约",
+)
+
+UNCERTAIN_FUTURE = ("考虑", "犹豫", "也许", "可能", "不确定", "还没决定")
+
 
 def appraise(appraisal: Appraisal) -> Emotion:
     """Map an appraisal to a discrete label plus a PAD impulse."""
@@ -80,8 +87,19 @@ def appraise(appraisal: Appraisal) -> Emotion:
     d, c, ctrl, novelty = a.desirability, a.certainty, a.control, a.novelty
     label = "neutral"
 
+    future = "future" in a.note
+    uncertain_future = "uncertain-future" in a.note
+
     if novelty >= 0.72 and abs(d) < 0.35:
         label = "surprise"
+    elif future and abs(d) < 0.22:
+        # "Anticipation" is a future-oriented appraisal, not the default for
+        # every neutral statement.  A move being considered is uncertainty;
+        # a move already decided is anticipation.
+        if uncertain_future:
+            label = "anxiety" if a.stakes >= 0.50 else "neutral"
+        else:
+            label = "anticipation"
     elif d >= 0.22:
         if c < 0.45:
             label = "hope"
@@ -102,8 +120,13 @@ def appraise(appraisal: Appraisal) -> Emotion:
             label = "anxiety" if d > -0.70 else "fear"
         else:
             label = "sadness"
+    elif abs(d) < 0.12:
+        label = "neutral"
     elif a.goal_relevance >= 0.65:
-        label = "anticipation"
+        # Relevance alone is not anticipation.  A neutral but relevant fact
+        # ("I live in Hangzhou") stays neutral; it should not paint the whole
+        # conversation with one label.
+        label = "neutral"
 
     valence = clamp(d * (0.55 + 0.45 * a.goal_relevance), -1.0, 1.0)
     arousal = clamp(0.16 + 0.52 * a.stakes * abs(d) + 0.34 * novelty, 0.0, 1.0)
@@ -173,7 +196,12 @@ def estimate_appraisal(text: str) -> Appraisal:
 
     norm = -0.5 if any(w in low for w in ("道德", "欺骗", "背叛", "恶心", "违规")) else 0.1
     relevance = clamp(0.35 + 0.03 * min(len(raw), 18) + 0.15 * stakes, 0.0, 1.0)
-    note = "lexical:" + ",".join(matched[:6]) if matched else "lexical:no-cue"
+    note_parts = ["lexical:" + (",".join(matched[:6]) if matched else "no-cue")]
+    if any(word in low for word in FUTURE_CUES):
+        note_parts.append("future")
+    if any(word in low for word in UNCERTAIN_FUTURE):
+        note_parts.append("uncertain-future")
+    note = ";".join(note_parts)
 
     return Appraisal(
         goal_relevance=relevance,

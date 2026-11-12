@@ -531,16 +531,17 @@ class Thymos:
         episodic traces for a Top-k slot.
         """
         hits = hits or []
+        fact_ratio = getattr(self.config, "fact_budget_ratio", 0.35)
         fact_block = self.facts.render(
             query,
             at=self.now,
-            max_chars=int(max_chars * 0.45) if max_chars else None,
+            max_chars=int(max_chars * fact_ratio) if max_chars else None,
         )
         if fact_block:
             fact_block = wrap_untrusted(
                 sanitize_memory_text(
                     fact_block,
-                    max_chars=int(max_chars * 0.55) if max_chars else 1200,
+                    max_chars=int(max_chars * (fact_ratio + 0.10)) if max_chars else 1200,
                 )
             )
         stale_values = self.facts.stale_values(self.now, query)

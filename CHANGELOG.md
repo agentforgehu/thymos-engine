@@ -10,15 +10,22 @@
 - `docs/STRATEGY.md` 4.6：从“记忆引擎”迁移到“记忆控制平面”，用表示路由、情绪路由、预算路由把红海数据平面变成渠道。
 - 同类项目对照：MemoryBank、emotional-memory、YourMemory、OpenFeelz、MyPersona、Memary、Mem0、MemoryOS、MemOS、Letta、Graphiti、A-MEM、HippoRAG、MemU、MemEmo。
 - `docs/LOCAL_LLM_MIXED_GATE_TEST.md`：本地 35B 的 65 轮混合查询长测与四门控消融。27/27 探针、8/8 混合意图、24/24 门控对照全部命中；结论是未观察到门控误伤事实，代价主要是上下文长度与更长回复。
+- `docs/LOCAL_LLM_FIXES.md`：事实预算、饮食/健康事件抽取、情绪标签与压力动力学三项修复的本地 35B 复测。65 轮 0 模型错误、整体召回 96.3%、混合意图 100%、0 旧事实污染。
 
 ### Fixed
 
 - `AgentMemory.observe`：即使宿主用 `min_importance=0` 保留问句，也不再从问句学习结构化事实，避免“我喝咖啡加糖吗？”被写成 `咖啡糖=加糖`。
+- `FactStore.render`：按查询谓词选择事实，事实块默认上限 35% 预算；超限 `break` 而不是 `continue`，不再把整份档案倒进上下文。
+- 事实抽取新增 `food_like`、`food_dislike`、`food_event`、`health_event`；问句不写偏好/事件。
+- `appraise`：移除 `goal_relevance >= 0.65 -> anticipation` 的兜底；中性事实保持 `neutral`，未来线索才进入 `anticipation`，未来 + 不确定进入 `anxiety`/`neutral`。
+- `AffectDynamics`：压力增加有上限，正面事件可降低压力；静息目标下调，避免 30 轮温和事件把压力推到 0.8。
+- `trim_to_tokens`：省略号不再把结果顶过 token 硬上限。
 
 ### Changed
 
 - `README.md` 导航加入 `docs/STRATEGY.md`。
 - `docs/ROADMAP.md` 增加标签说明：项目阶段、问题优先级、科学验证不要混用。
+- 测试总数从 117 增至 126（新增事实相关性、事件抽取、标签与压力回归）。
 
 ## [0.3.0] — 2026-11-13
 
@@ -32,7 +39,7 @@
 - `AgentMemory.plan()`：返回 `context` + `intent` + `affect` + 算子审计；`context()` 默认走同一控制平面。
 - HTTP `/api/context`、`/api/plan`、`/api/audit`；MCP `memory_plan`；CLI `thymos plan`。
 - `docs/PRODUCT.md`：保留 / 改写 / 放弃 / 冻结清单，与 Mem0、Graphiti、Letta、MemoryBank 等项目的借/不借说明。
-- 12 项控制平面测试，总计 117 项。
+- 12 项控制平面测试（0.3.0 当时总计 117 项；当前总计 126 项）。
 
 ### Changed
 
