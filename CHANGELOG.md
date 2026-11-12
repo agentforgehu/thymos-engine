@@ -7,6 +7,7 @@
 ### Added
 
 - `docs/STRATEGY.md`：目标校准与同类项目调研。把“P0–P2 可靠性升级”与“科学验证”拆开，提出 E（工程）/ S（科学）/ P（产品）标签、五条可证伪主张、Thymos-30 试点与 12 个月 OKR。
+- `docs/STRATEGY.md` 4.6：从“记忆引擎”迁移到“记忆控制平面”，用表示路由、情绪路由、预算路由把红海数据平面变成渠道。
 - 同类项目对照：MemoryBank、emotional-memory、YourMemory、OpenFeelz、MyPersona、Memary、Mem0、MemoryOS、MemOS、Letta、Graphiti、A-MEM、HippoRAG、MemU、MemEmo。
 
 ### Changed
