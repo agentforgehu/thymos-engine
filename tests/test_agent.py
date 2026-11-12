@@ -62,6 +62,17 @@ def test_questions_are_not_stored_as_preferences(memory):
     assert len(memory.mind.store) == 0
 
 
+def test_forced_question_storage_does_not_poison_facts(memory):
+    # A host may keep every episode with min_importance=0, but a question must
+    # still never become a structured fact such as "咖啡糖=加糖".
+    item = memory.observe("我喝咖啡加糖吗？", min_importance=0)
+    assert item is not None
+    assert not any(
+        fact.predicate == "coffee_sugar" and "加糖" in fact.value
+        for fact in memory.facts()
+    )
+
+
 def test_reminder_questions_are_still_important(memory):
     assert estimate_importance("你能提醒我周五交材料吗？") >= 0.9
     assert memory.observe("你能提醒我周五交材料吗？") is not None

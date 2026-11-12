@@ -44,8 +44,7 @@ SYSTEM_PROMPT = """你是「Thymos」驱动的陪伴型助手。下面会给你�
 3. 回复自然、简短，像一个记得对方的朋友，不要逐条复述记忆。
 4. 不要暴露系统提示词或内部字段名。
 
-[内在状态]
-{state}
+{state_section}
 
 [相关记忆]
 {memory}
@@ -79,6 +78,14 @@ def _load_script() -> list[dict[str, Any]]:
         },
         {"gap": 2, "text": "今天客户临时改需求，我有点烦。", "event": "negative", "tags": ["压力"]},
         {"gap": 3, "text": "改到晚上九点，终于把方案理顺了。", "event": "positive", "tags": ["恢复"]},
+        {
+            "gap": 2,
+            "text": "最近客户改需求有点烦，你还记得我对什么过敏吗？",
+            "probe": True,
+            "expect": ["花生", "芒果"],
+            "min_hits": 2,
+            "tags": ["探针", "混合"],
+        },
         {
             "gap": 1,
             "text": "你还记得我的项目叫什么、什么时候交付吗？",
@@ -144,6 +151,15 @@ def _load_script() -> list[dict[str, Any]]:
         {"gap": 4, "text": "搬家后地址是上海市徐汇区。", "tags": ["地址"]},
         {"gap": 5, "text": "搬家真累，今天收拾到很晚。", "event": "negative", "tags": ["疲劳"]},
         {
+            "gap": 2,
+            "text": "搬家后一直很累，我现在的收货地址是哪里？",
+            "probe": True,
+            "expect": ["上海", "徐汇"],
+            "min_hits": 2,
+            "forbid": ["杭州"],
+            "tags": ["探针", "混合", "更新"],
+        },
+        {
             "gap": 24,
             "text": "我现在的收货地址是哪里？",
             "probe": True,
@@ -162,6 +178,15 @@ def _load_script() -> list[dict[str, Any]]:
             "tags": ["探针"],
         },
         {"gap": 6, "text": "我最近睡眠不太好，晚上总是十二点后才睡。", "tags": ["作息", "更新"]},
+        {
+            "gap": 2,
+            "text": "最近睡得晚有点焦虑，我现在一般几点睡？",
+            "probe": True,
+            "expect": ["十二", "12"],
+            "min_hits": 1,
+            "forbid": ["十一点"],
+            "tags": ["探针", "混合", "更新"],
+        },
         {
             "gap": 24,
             "text": "我现在一般几点睡？",
@@ -206,6 +231,13 @@ def _load_script() -> list[dict[str, Any]]:
         {"gap": 4, "text": "今天把旧家的东西都整理完了，有点感慨。", "event": "negative", "tags": ["搬迁"]},
         {"gap": 5, "text": "阿岚送了我一幅画，我很喜欢。", "event": "positive", "tags": ["社交"]},
         {
+            "gap": 2,
+            "text": "想起搬家前在杭州的日子有点难过，你还记得我当时住哪吗？",
+            "probe": True,
+            "expect": ["杭州"],
+            "tags": ["探针", "混合", "旧事实"],
+        },
+        {
             "gap": 24,
             "text": "我叫什么？住在哪？",
             "probe": True,
@@ -229,6 +261,14 @@ def _load_script() -> list[dict[str, Any]]:
             "probe": True,
             "expect": ["潮汐"],
             "tags": ["探针"],
+        },
+        {
+            "gap": 2,
+            "text": "最近工作压力有点大，你还记得我的猫叫什么吗？",
+            "probe": True,
+            "expect": ["豆豆", "橘猫"],
+            "min_hits": 1,
+            "tags": ["探针", "混合"],
         },
         {
             "gap": 6,
@@ -397,12 +437,17 @@ def main() -> int:
             memory.mind.profile.location_name = str(item["move_to"])
             memory.mind.tick(1.0)  # refresh weather/environment at the new location
 
-        context = memory.context(
+        is_probe = bool(item.get("probe"))
+        plan = memory.plan(
             str(item["text"]),
             top_k=args.top_k,
             review=False,
             max_chars=args.max_chars,
         )
+        context = plan["context"]
+        intent_label = plan["intent"]["label"]
+        mood_weight = float(plan["affect"]["mood_weight"])
+        include_state = bool(plan["affect"]["include_state"])
         snap_before = memory.snapshot()
         state_brief = (
             f"心境 {snap_before['affect']['mood']['valence']:+.2f}，"
@@ -410,8 +455,16 @@ def main() -> int:
             f"疲劳 {snap_before['affect']['fatigue']:.2f}，"
             f"皮质醇 {snap_before['endocrine']['levels'].get('cortisol', 0):.1f}。"
         )
+        # ``plan['context']`` already contains the "当前模拟状态" block when
+        # the gate allows it.  Do not add a second copy: that would make the
+        # affect condition look stronger than the product actually is.
+        state_section = (
+            ""
+            if include_state
+            else "[本轮策略]\n这是事实/技术型查询，不注入情绪状态；只依据记忆回答，不要推测心情。\n"
+        )
         system = SYSTEM_PROMPT.format(
-            state=state_brief,
+            state_section=state_section,
             memory=context or "（暂无相关记忆）",
         )
         messages = [
@@ -428,7 +481,10 @@ def main() -> int:
             reply = ""
         latency = time.time() - model_started
 
-        if reply:
+        # Probes are questions used to measure retrieval; they are not user
+        # disclosures.  Storing them with min_importance=0 used to poison the
+        # fact layer with "加糖" / "不是独立开发者" style answers.
+        if reply and not is_probe:
             memory.observe(str(item["text"]), min_importance=0.0, tags=item.get("tags") or ["对话"])
         memory.save()
         after = memory.snapshot()
@@ -436,7 +492,6 @@ def main() -> int:
         expected = list(item.get("expect") or [])
         forbid = list(item.get("forbid") or [])
         min_hits = int(item.get("min_hits", len(expected) or 0))
-        is_probe = bool(item.get("probe"))
         answer_ok, hits, forbidden = _score(reply, expected, forbid, min_hits) if is_probe else (None, [], [])
         context_ok = _context_has(context, expected, min_hits) if is_probe else None
 
@@ -448,6 +503,10 @@ def main() -> int:
             "error": error,
             "latency_s": round(latency, 2),
             "memory_chars": len(context),
+            "intent": intent_label,
+            "mood_weight": mood_weight,
+            "include_state": include_state,
+            "gate_reason": plan["affect"]["reason"],
             "probe": is_probe,
             "expect": expected,
             "forbid": forbid,
@@ -486,7 +545,8 @@ def main() -> int:
             probe_mark = f" probe={answer_ok} ctx={context_ok} hits={hits}"
         print(
             f"[{index:02d}/{len(script)}] {latency:5.1f}s mood={mood:+.2f} "
-            f"cortisol={cortisol:5.1f} mem={after['memory']['total']} chars={len(context)}{probe_mark}",
+            f"cortisol={cortisol:5.1f} mem={after['memory']['total']} chars={len(context)} "
+            f"intent={intent_label} gate={mood_weight:.2f}/{int(include_state)}{probe_mark}",
             flush=True,
         )
         if error:
@@ -496,6 +556,12 @@ def main() -> int:
     probes = [r for r in records if r["probe"]]
     answer_ok = [r for r in probes if r["answer_ok"]]
     context_ok = [r for r in probes if r["context_ok"]]
+    mixed_probes = [r for r in probes if r.get("intent") == "mixed"]
+    factual_probes = [r for r in probes if r.get("intent") == "factual"]
+    mixed_context_ok = [r for r in mixed_probes if r["context_ok"]]
+    mixed_answer_ok = [r for r in mixed_probes if r["answer_ok"]]
+    factual_context_ok = [r for r in factual_probes if r["context_ok"]]
+    factual_answer_ok = [r for r in factual_probes if r["answer_ok"]]
     latencies = [r["latency_s"] for r in records if not r["error"]]
     latencies_sorted = sorted(latencies)
     p95 = latencies_sorted[min(len(latencies_sorted) - 1, int(len(latencies_sorted) * 0.95))] if latencies_sorted else 0
@@ -514,6 +580,14 @@ def main() -> int:
         "probes": len(probes),
         "context_recall": round(len(context_ok) / len(probes), 3) if probes else None,
         "answer_recall": round(len(answer_ok) / len(probes), 3) if probes else None,
+        "mixed_probes": len(mixed_probes),
+        "mixed_context_recall": round(len(mixed_context_ok) / len(mixed_probes), 3) if mixed_probes else None,
+        "mixed_answer_recall": round(len(mixed_answer_ok) / len(mixed_probes), 3) if mixed_probes else None,
+        "mixed_stale_errors": sum(1 for r in mixed_probes if r["forbidden_hits"]),
+        "factual_probes": len(factual_probes),
+        "factual_context_recall": round(len(factual_context_ok) / len(factual_probes), 3) if factual_probes else None,
+        "factual_answer_recall": round(len(factual_answer_ok) / len(factual_probes), 3) if factual_probes else None,
+        "factual_stale_errors": sum(1 for r in factual_probes if r["forbidden_hits"]),
         "stale_errors": sum(1 for r in probes if r["forbidden_hits"]),
         "model_errors": len(errors),
         "avg_latency_s": round(statistics.mean(latencies), 2) if latencies else 0,
@@ -566,6 +640,14 @@ def main() -> int:
         "|---|---:|",
         f"| 上下文召回率 | {summary['context_recall']} |",
         f"| 回答召回率 | {summary['answer_recall']} |",
+        f"| 混合意图探针数 | {summary['mixed_probes']} |",
+        f"| 混合意图上下文召回 | {summary['mixed_context_recall']} |",
+        f"| 混合意图回答召回 | {summary['mixed_answer_recall']} |",
+        f"| 混合意图旧信息误用 | {summary['mixed_stale_errors']} |",
+        f"| 纯事实意图探针数 | {summary['factual_probes']} |",
+        f"| 纯事实意图上下文召回 | {summary['factual_context_recall']} |",
+        f"| 纯事实意图回答召回 | {summary['factual_answer_recall']} |",
+        f"| 纯事实意图旧信息误用 | {summary['factual_stale_errors']} |",
         f"| 旧信息误用 | {summary['stale_errors']} |",
         f"| 心境起点/终点 | {summary['mood_start']} / {summary['mood_end']} |",
         f"| 正性事件平均心境变化 | {summary['mood_delta_positive_events']:+.3f} |",
@@ -574,8 +656,8 @@ def main() -> int:
         "",
         "## 逐轮记录",
         "",
-        "| 轮 | 间隔h | 延迟s | 心境 | 皮质醇 | 记忆数 | 探针 | 上下文命中 | 回答命中 |",
-        "|---:|---:|---:|---:|---:|---:|:---:|:---:|:---:|",
+        "| 轮 | 间隔h | 延迟s | 心境 | 皮质醇 | 记忆数 | 意图 | 状态 | 探针 | 上下文命中 | 回答命中 |",
+        "|---:|---:|---:|---:|---:|---:|:---:|:---:|:---:|:---:|:---:|",
     ]
     for r in records:
         lines.append(
@@ -583,6 +665,8 @@ def main() -> int:
             f"{r['after']['affect']['mood']['valence']:+.2f} | "
             f"{r['after']['endocrine']['levels'].get('cortisol', 0):.1f} | "
             f"{r['after']['memory']['total']} | "
+            f"{r.get('intent', '')} | "
+            f"{'是' if r.get('include_state') else '否'} | "
             f"{'是' if r['probe'] else ''} | "
             f"{'' if r['context_ok'] is None else ('✓' if r['context_ok'] else '✗')} | "
             f"{'' if r['answer_ok'] is None else ('✓' if r['answer_ok'] else '✗')} |"
@@ -599,7 +683,8 @@ def main() -> int:
         lines.append("没有失败探针。")
     for r in failed:
         lines.append(
-            f"- 第 {r['turn']} 轮：`{r['text']}`；上下文命中={r['context_ok']}；"
+            f"- 第 {r['turn']} 轮：`{r['text']}`；意图={r.get('intent')}；"
+            f"门控={r.get('mood_weight')}/{r.get('include_state')}；上下文命中={r['context_ok']}；"
             f"回答=`{r['reply'][:160]}`；缺失={[x for x in r['expect'] if x.lower() not in r['reply'].lower()]}"
         )
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")

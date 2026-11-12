@@ -258,6 +258,11 @@ class AgentMemory:
         score = estimate_importance(text) if importance is None else clamp(importance)
         if score < min_importance:
             return None
+        # A question is a request for information, not a self-disclosure.
+        # This guard matters when a host passes min_importance=0 to keep the
+        # episode: without it, "我喝咖啡加糖吗？" can be parsed as "加糖".
+        if _QUESTION.search(text):
+            learn_facts = False
 
         content = text
         if assistant_text:

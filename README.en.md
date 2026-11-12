@@ -151,7 +151,7 @@ These validate **internal consistency**, not human psychology. See [docs/EXPERIM
 | Letta / MemGPT | hierarchical context | context eviction | — | — | — | partial |
 | Generative Agents | memory stream | recency decay | simple | — | — | yes |
 | ALMA / WASABI | — | — | appraisal + PAD | — | — | partial |
-| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **116 tests + 5 experiments** |
+| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **117 tests + 5 experiments** |
 
 Thymos does not compete on memory-recall benchmarks. It competes on **dynamical coherence, inspectability and reproducibility**.
 

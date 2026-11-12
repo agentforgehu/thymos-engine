@@ -9,6 +9,11 @@
 - `docs/STRATEGY.md`：目标校准与同类项目调研。把“P0–P2 可靠性升级”与“科学验证”拆开，提出 E（工程）/ S（科学）/ P（产品）标签、五条可证伪主张、Thymos-30 试点与 12 个月 OKR。
 - `docs/STRATEGY.md` 4.6：从“记忆引擎”迁移到“记忆控制平面”，用表示路由、情绪路由、预算路由把红海数据平面变成渠道。
 - 同类项目对照：MemoryBank、emotional-memory、YourMemory、OpenFeelz、MyPersona、Memary、Mem0、MemoryOS、MemOS、Letta、Graphiti、A-MEM、HippoRAG、MemU、MemEmo。
+- `docs/LOCAL_LLM_MIXED_GATE_TEST.md`：本地 35B 的 65 轮混合查询长测与四门控消融。27/27 探针、8/8 混合意图、24/24 门控对照全部命中；结论是未观察到门控误伤事实，代价主要是上下文长度与更长回复。
+
+### Fixed
+
+- `AgentMemory.observe`：即使宿主用 `min_importance=0` 保留问句，也不再从问句学习结构化事实，避免“我喝咖啡加糖吗？”被写成 `咖啡糖=加糖`。
 
 ### Changed
 
@@ -27,7 +32,7 @@
 - `AgentMemory.plan()`：返回 `context` + `intent` + `affect` + 算子审计；`context()` 默认走同一控制平面。
 - HTTP `/api/context`、`/api/plan`、`/api/audit`；MCP `memory_plan`；CLI `thymos plan`。
 - `docs/PRODUCT.md`：保留 / 改写 / 放弃 / 冻结清单，与 Mem0、Graphiti、Letta、MemoryBank 等项目的借/不借说明。
-- 12 项控制平面测试，总计 116 项。
+- 12 项控制平面测试，总计 117 项。
 
 ### Changed
 

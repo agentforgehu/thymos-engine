@@ -164,9 +164,11 @@ def main() -> int:
                     "http://127.0.0.1:8080/v1",
                     "--model",
                     "qwen3.6-35b-a3b",
-                    "--turns",
-                    str(args.turns),
                 ]
+                # The long-run script owns --turns; the ablation script uses
+                # its own fixed query set and does not accept it.
+                if script.name != "gate_ablation.py":
+                    test_cmd += ["--turns", str(args.turns)]
             test = subprocess.run(
                 test_cmd,
                 cwd=str(ROOT),

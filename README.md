@@ -6,7 +6,7 @@
 
 一个本地优先、可解释、可复现的「情绪 × 记忆 × 内分泌 × 环境」耦合引擎。
 
-[English](README.en.md) · [产品定义](docs/PRODUCT.md) · [教程](docs/TUTORIAL.md) · [MCP 接入](docs/MCP.md) · [P0–P2 升级](docs/UPGRADE_P0_P2.md) · [目标校准与同类项目](docs/STRATEGY.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [50 轮实测](docs/LOCAL_LLM_50_TEST.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [Held-out 评测](docs/results/heldout_eval.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
+[English](README.en.md) · [产品定义](docs/PRODUCT.md) · [教程](docs/TUTORIAL.md) · [MCP 接入](docs/MCP.md) · [P0–P2 升级](docs/UPGRADE_P0_P2.md) · [目标校准与同类项目](docs/STRATEGY.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [50 轮实测](docs/LOCAL_LLM_50_TEST.md) · [混合门控实测](docs/LOCAL_LLM_MIXED_GATE_TEST.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [Held-out 评测](docs/results/heldout_eval.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
@@ -237,7 +237,7 @@ python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 | Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
 | Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
 | ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
-| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，116 项测试 + 5 个实验** |
+| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，117 项测试 + 5 个实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
 
@@ -274,6 +274,7 @@ python experiments/replay_harness.py --llm mock
 | 情绪记忆 | 半衰期：中性 **9.6 天** / 轻度 **15.8 天** / 高唤醒 **35.9 天** |
 | 中文 embedding 检索 | 12 条基线：hash recall@1 **0.417** / recall@3 **0.750** / MRR **0.572**；可用 `--embedding ollama` 对比 bge-m3 |
 | 小上下文记忆 | 900/600 字符预算、50 轮：Thymos **16/16**；最近对话基线 **7/16**（见 [BUDGET_CONTEXT.md](docs/BUDGET_CONTEXT.md)） |
+| 混合查询门控 | 65 轮/27 探针 **27/27**；混合意图 **8/8**；6 查询×4 门控 **24/24**；状态块 +70–95 字符，事实召回不变（见 [LOCAL_LLM_MIXED_GATE_TEST.md](docs/LOCAL_LLM_MIXED_GATE_TEST.md)） |
 
 ![间隔效应](docs/figures/fig2_spacing.png)
 
@@ -354,7 +355,7 @@ src/thymos/
   dashboard.html  零依赖可视化面板
   cli.py          命令行
 experiments/      五个实验 + 检索基线 + 回放 harness + held-out 评测
-tests/             116 项测试
+tests/             117 项测试
 docs/             教程、研究、设计、实验、命名、路线图
 ```
 
@@ -370,7 +371,7 @@ docs/             教程、研究、设计、实验、命名、路线图
 
 ## 路线图
 
-- **v0.3.0（当前）** 控制平面 MVP：意图路由、情绪门控、事实/情景/图/摘要四算子、预算规划、审计轨迹、`MemoryBackend` 协议；116 项测试。
+- **v0.3.0（当前）** 控制平面 MVP：意图路由、情绪门控、事实/情景/图/摘要四算子、预算规划、审计轨迹、`MemoryBackend` 协议；117 项测试。
 - **v0.3.x** 外部 benchmark 强基线、Mem0/Graphiti 参考适配器、多租户 SQLite、静态加密/保留期、审计 UI。
 - **v0.4** 参数敏感性分析、个体化校准、更多环境变量（空气质量、噪声、社交密度）。
 - **v1.0** 开放基准、社区治理、稳定 API、隐私与安全审计。
