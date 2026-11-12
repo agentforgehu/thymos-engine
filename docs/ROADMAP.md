@@ -31,7 +31,7 @@
 
 | 阶段 | 目标 | 时间 | 退出条件 |
 |---|---|---|---|
-| **P0 本地实验** | 核心引擎、CLI、面板、测试、实验 | 已完成 | 89 项测试通过；5 个实验可复现 |
+| **P0 本地实验** | 核心引擎、CLI、面板、测试、实验 | 已完成 | 104 项测试通过；5 个实验可复现 |
 | **P1 科学验证** | 参数恢复、敏感性、消融、真实日志 | 4–8 周 | 关键参数可识别；消融结果公开 |
 | **P2 开源发布** | 仓库、CI、文档、示例、v0.1.0 | 2–4 周 | 外部用户能在 10 分钟内跑通 |
 | **P3 集成** | LLM/Agent 适配、SQLite、真实嵌入 | 6–10 周 | 一个真实 Agent 连续运行 7 天 |
@@ -50,17 +50,29 @@
 - [x] JSON 持久化、原子写入、状态快照
 - [x] CLI：`init / demo / perceive / recall / tick / consolidate / snapshot / serve`
 - [x] 零依赖 HTTP API + 可视化面板
-- [x] 89 项测试
+- [x] 104 项测试
 - [x] 5 个可复现实验 + 图表 + 指标 JSON
 
 ### 已知缺口
 
 - 评价层是词典启发式；
 - 嵌入是哈希 n-gram；
-- 没有 SQLite/多用户；
+- SQLite 可选后端已有；多用户命名空间、静态加密、保留期未做；
 - 没有真实用户研究；
-- 没有 MCP/Agent 框架适配；
+- MCP 已有；LangChain/AutoGen/Dify/AstrBot 适配包未做；
 - 参数未做全局敏感性分析。
+
+### 0.2.0 可靠性升级（2026-11-13）
+
+- [x] 多值事实、事件时间、`correct/delete`、来源/置信度
+- [x] `<memory trust="untrusted">` 边界、PII 脱敏、HTTP token
+- [x] 可选 `LLMFactExtractor`（schema + allow-list + 规则兜底）
+- [x] 词法混合检索、保守 token 预算、`last_context` 指标
+- [x] 可选 `SQLiteMemoryStore`（WAL，事务写入）
+- [x] stdio MCP 六工具 + 面板事实查看/删除
+- [x] 120 例 held-out 生成器；24 例真实模型 + 50 轮长测
+
+退出条件没有完全达到：P0 的“100 条对抗句 ≥90%”和 P1 的“100+ 条中文检索基准、reranker”仍未交付；0.2.0 只完成了低风险的一半。
 
 ---
 

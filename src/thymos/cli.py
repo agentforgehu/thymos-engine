@@ -69,6 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8787)
     serve.add_argument("--no-browser", action="store_true")
+    serve.add_argument("--token", default=None, help="Bearer token；默认读取 THYMOS_API_TOKEN")
     return parser
 
 
@@ -254,7 +255,13 @@ def cmd_serve(args: argparse.Namespace) -> int:
     engine = load_engine(args)
     if not os.path.exists(args.state):
         engine.save()
-    serve(engine, host=args.host, port=args.port, open_browser=not args.no_browser)
+    serve(
+        engine,
+        host=args.host,
+        port=args.port,
+        open_browser=not args.no_browser,
+        token=args.token,
+    )
     return 0
 
 

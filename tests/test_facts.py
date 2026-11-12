@@ -47,7 +47,27 @@ def test_move_intention_does_not_change_current_city():
     assert store.current("user", "city", 2200).value == "杭州"
 
     store.observe("我决定搬去上海了，下周搬。", 2300)
-    assert store.current("user", "city", 2300).value == "上海"
+    # A future move does not rewrite the current city before it happens.
+    assert store.current("user", "city", 2300).value == "杭州"
+    assert store.current("user", "city", 2300 + 7 * 86400).value == "上海"
+
+
+def test_multi_value_allergy_and_correction():
+    store = FactStore()
+    store.observe("我对花生和芒果过敏。", 1000)
+    values = [f.value for f in store.active_for("user", "allergy", 1000)]
+    assert values == ["花生", "芒果"]
+
+    store.correct("user", "allergy", "腰果", 2000, old_value="花生")
+    values = [f.value for f in store.active_for("user", "allergy", 2000)]
+    assert "腰果" in values
+    assert "花生" not in values
+    assert "芒果" in values
+
+
+def test_statement_with_question_tag_still_extracts_fact():
+    facts = dict(extract_facts("我住在杭州，你知道吗？"))
+    assert facts["city"] == "杭州"
 
 
 def test_sleep_update_does_not_show_old_value_as_current():

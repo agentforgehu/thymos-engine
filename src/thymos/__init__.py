@@ -24,9 +24,12 @@ from .engine import Thymos
 from .agent import AgentMemory, estimate_importance
 from .embedding_http import EmbeddingError, OllamaEmbedder, OpenAIEmbedder
 from .facts import Fact, FactStore
+from .safety import redact_pii, sanitize_memory_text
+from .sqlite_store import SQLiteMemoryStore
+from .tokens import estimate_tokens, trim_to_tokens
 from .types import Appraisal, Emotion, MemoryItem, RetrievalResult
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 __all__ = [
     "Thymos",
@@ -37,6 +40,11 @@ __all__ = [
     "EmbeddingError",
     "Fact",
     "FactStore",
+    "SQLiteMemoryStore",
+    "sanitize_memory_text",
+    "redact_pii",
+    "estimate_tokens",
+    "trim_to_tokens",
     "Profile",
     "ThymosConfig",
     "Appraisal",

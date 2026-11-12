@@ -26,6 +26,8 @@ from .forgetting import initial_stability, retrievability
 from .mathx import clamp
 from .memory import MemoryStore
 from .retrieval import retrieve, review, time_bucket_for
+from .safety import MEMORY_HEADER, sanitize_memory_text, wrap_untrusted
+from .tokens import estimate_tokens
 from .types import Appraisal, Emotion, EnvironmentState, MemoryItem, RetrievalResult
 from .weather import WeatherClient
 
@@ -61,6 +63,7 @@ class Thymos:
         now: float | None = None,
         offline: bool | None = None,
         embedder: Embedder | None = None,
+        store: MemoryStore | None = None,
     ) -> None:
         self.config = config or ThymosConfig()
         self.profile = profile or Profile()
@@ -68,7 +71,7 @@ class Thymos:
             self.config.offline = offline
         self.rng = random.Random(self.config.seed)
         self.embedder = embedder or make_embedder(self.config.embedding_dim)
-        self.store = MemoryStore()
+        self.store = store if store is not None else MemoryStore()
         self.facts = FactStore()
         self.affect = AffectDynamics(self.config, self.profile)
         self.endocrine = EndocrineSystem()
@@ -79,6 +82,7 @@ class Thymos:
         self.environment = self.weather.current(self.profile, self.now)
         self._effects = environment_effects(self.environment, self.profile)
         self._tick_count = 0
+        self._last_context_stats: dict[str, Any] = {}
 
         if state_path and os.path.exists(state_path):
             self.load(state_path)
@@ -181,6 +185,7 @@ class Thymos:
         source: str = "user",
         context: dict[str, Any] | None = None,
         timestamp: float | None = None,
+        learn_facts: bool = True,
     ) -> MemoryItem:
         """Encode one event, appraise it, and update affect and hormones."""
         if timestamp is not None:
@@ -249,12 +254,13 @@ class Thymos:
             source=source,
         )
         self.store.add(item)
-        self.facts.observe(
-            content,
-            at=self.now,
-            source=source,
-            memory_id=item.id,
-        )
+        if learn_facts:
+            self.facts.observe(
+                content,
+                at=self.now,
+                source=source,
+                memory_id=item.id,
+            )
 
         for similar, similarity in self.store.most_similar(
             embedding,
@@ -295,11 +301,16 @@ class Thymos:
             affect=self.affect.state,
             endocrine=self.endocrine,
             top_k=top_k,
+            query_text=query,
         )
         reviewed = 0
         if update:
             for hit in results:
-                if hit.components.get("semantic", 0.0) <= 0.01 and hit.components.get("tags", 0.0) <= 0.0:
+                if (
+                    hit.components.get("semantic", 0.0) <= 0.01
+                    and hit.components.get("tags", 0.0) <= 0.0
+                    and hit.components.get("lexical", 0.0) <= 0.01
+                ):
                     continue
                 quality = clamp(0.45 + 0.55 * hit.probability, 0.25, 0.98)
                 review(
@@ -487,10 +498,17 @@ class Thymos:
             at=self.now,
             max_chars=int(max_chars * 0.45) if max_chars else None,
         )
+        if fact_block:
+            fact_block = wrap_untrusted(
+                sanitize_memory_text(
+                    fact_block,
+                    max_chars=int(max_chars * 0.55) if max_chars else 1200,
+                )
+            )
         stale_values = self.facts.stale_values(self.now, query)
 
         seen: set[str] = set()
-        memory_lines = ["## 相关记忆"]
+        memory_lines = [MEMORY_HEADER]
         for hit in hits:
             m = hit.memory
             if any(value and value in m.content for value in stale_values):
@@ -501,11 +519,15 @@ class Thymos:
             if key in seen:
                 continue
             seen.add(key)
+            safe_content = sanitize_memory_text(
+                m.content,
+                max_chars=180 if max_chars else 500,
+            )
             if max_chars:
-                memory_lines.append(f"- {m.content[:180]}")
+                memory_lines.append(f"- {safe_content}")
             else:
                 memory_lines.append(
-                    f"- {m.content}（相关度 {hit.score:.2f}，可提取度 {hit.retrievability:.0%}，"
+                    f"- {safe_content}（相关度 {hit.score:.2f}，可提取度 {hit.retrievability:.0%}，"
                     f"情绪 {m.valence:+.2f}，稳定度 {m.stability:.2f} 天）"
                 )
         if len(memory_lines) == 1:
@@ -527,7 +549,15 @@ class Thymos:
                 "\n".join(memory_lines),
                 "\n".join(state_lines),
             ]
-            return "\n\n".join(parts)
+            text = "\n\n".join(parts)
+            self._last_context_stats = {
+                "chars": len(text),
+                "tokens": estimate_tokens(text),
+                "memories": len(seen),
+                "has_facts": bool(fact_block),
+                "budget_chars": None,
+            }
+            return text
 
         # Budgeted path: facts first, then as many compact memories as fit,
         # then the short state block.  Never exceed the caller's budget.
@@ -549,6 +579,13 @@ class Thymos:
         text = "\n\n".join(parts)
         if len(text) > max_chars:
             text = text[: max(0, max_chars)].rstrip()
+        self._last_context_stats = {
+            "chars": len(text),
+            "tokens": estimate_tokens(text),
+            "memories": len(seen),
+            "has_facts": bool(fact_block),
+            "budget_chars": max_chars,
+        }
         return text
 
     def stats(self) -> dict[str, Any]:
@@ -584,6 +621,7 @@ class Thymos:
             "endocrine": self.endocrine.snapshot(),
             "facts": self.facts.to_list(),
             "memory": self.stats(),
+            "last_context": self._last_context_stats,
             "top_memories": self.top_memories(6),
             "events": self.events[-20:],
             "config": {
@@ -622,6 +660,7 @@ class Thymos:
         state_path: str | None = None,
         offline: bool | None = None,
         embedder: Embedder | None = None,
+        store: MemoryStore | None = None,
     ) -> "Thymos":
         profile = Profile.from_dict(data.get("profile"))
         config = ThymosConfig.from_dict(data.get("config"))
@@ -634,11 +673,16 @@ class Thymos:
             now=data.get("now"),
             offline=offline,
             embedder=embedder,
+            store=store,
         )
         obj.state_path = state_path
         obj.affect = AffectDynamics.from_dict(config, profile, data.get("affect"))
         obj.endocrine = EndocrineSystem.from_dict(data.get("endocrine"))
-        obj.store = MemoryStore.from_list(data.get("memory"))
+        if store is None:
+            obj.store = MemoryStore.from_list(data.get("memory"))
+        else:
+            for item in MemoryStore.from_list(data.get("memory")).all():
+                obj.store.add(item)
         obj.facts = FactStore.from_list(data.get("facts"))
         obj.environment = EnvironmentState.from_dict(data.get("environment"))
         obj._effects = environment_effects(obj.environment, profile)
@@ -655,6 +699,11 @@ class Thymos:
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(self.to_dict(), fh, ensure_ascii=False, indent=2)
         os.replace(tmp, target)
+        try:
+            os.chmod(target, 0o600)
+        except OSError:
+            # Windows may not honour POSIX modes; do not fail a save for it.
+            pass
         self.state_path = target
         return target
 
@@ -664,7 +713,12 @@ class Thymos:
             raise FileNotFoundError(target)
         with open(target, "r", encoding="utf-8") as fh:
             data = json.load(fh)
-        loaded = Thymos.from_dict(data, state_path=target, embedder=self.embedder)
+        loaded = Thymos.from_dict(
+            data,
+            state_path=target,
+            embedder=self.embedder,
+            store=self.store,
+        )
         self.__dict__.update(loaded.__dict__)
         return self
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thymos-engine"
-version = "0.1.2"
+version = "0.2.0"
 description = "Thymos (心潮): a local-first, inspectable engine coupling forgetting curves, appraisal-based affect, endocrine modulation and real-world environment."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,6 +19,8 @@ keywords = [
   "simulation",
   "fsrs",
   "act-r",
+  "mcp",
+  "llm-memory",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -44,6 +46,7 @@ Documentation = "https://github.com/agentforgehu/thymos-engine/tree/main/docs"
 
 [project.scripts]
 thymos = "thymos.cli:main"
+thymos-mcp = "thymos.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

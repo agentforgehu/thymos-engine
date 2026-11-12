@@ -6,16 +6,16 @@
 
 一个本地优先、可解释、可复现的「情绪 × 记忆 × 内分泌 × 环境」耦合引擎。
 
-[English](README.en.md) · [教程](docs/TUTORIAL.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
+[English](README.en.md) · [教程](docs/TUTORIAL.md) · [MCP 接入](docs/MCP.md) · [P0–P2 升级](docs/UPGRADE_P0_P2.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [50 轮实测](docs/LOCAL_LLM_50_TEST.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [Held-out 评测](docs/results/heldout_eval.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.1.2%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.2.0%20alpha-f59e0b)
 
 </div>
 
-> **状态：v0.1.2 本地实验版。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学沙盒：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，观察它们如何互相拉扯。API 仍可能变化。
+> **状态：v0.2.0 本地实验版。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学沙盒：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，观察它们如何互相拉扯。0.2.0 重点补的是事实可靠性、安全边界、MCP 接入与 held-out 评测，而不是更多情绪变量。API 仍可能变化。
 
 ---
 
@@ -97,6 +97,14 @@ python -m thymos --offline serve
 ```
 
 浏览器会打开 `http://127.0.0.1:8787/`。面板可以记录事件、观察心境曲线与八种激素样变量、按线索回忆、推进时间、模拟睡眠巩固。
+
+### 接进自己的 Agent（MCP）
+
+```bash
+python -m thymos.mcp_server --state .thymos/mcp.json --offline
+```
+
+这是一个 stdio MCP server，提供 `memory_context`、`memory_observe`、`memory_recall`、`memory_correct_fact`、`memory_delete_fact`、`memory_snapshot` 六个工具。宿主 Agent 每轮先取记忆、回答后按需写入；记忆块带 `<memory trust="untrusted">` 边界，不会被当成系统指令。完整配置见 [docs/MCP.md](docs/MCP.md)。
 
 ---
 
@@ -211,7 +219,7 @@ python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 | Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
 | Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
 | ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
-| **Thymos** | **痕迹 + 关联图 + 图式** | **FSRS 曲线** | **快情绪 + 慢心境** | **8 变量 HPA** | **天气/光照/季节** | **是，89 项测试 + 5 个实验** |
+| **Thymos** | **痕迹 + 关联图 + 图式** | **FSRS 曲线** | **快情绪 + 慢心境** | **8 变量 HPA** | **天气/光照/季节** | **是，104 项测试 + 5 个实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
 
@@ -313,13 +321,19 @@ src/thymos/
   environment.py  太阳高度、昼长、季节、天气→心境映射
   weather.py      Open-Meteo 客户端 + 缓存 + 合成天气
   memory.py       痕迹存储 + 稀疏关联图
+  facts.py        多值事实、事件时间、纠正/退休
+  safety.py       PII 脱敏、注入边界
+  tokens.py       保守 token 预算
+  sqlite_store.py 可选 SQLite WAL 存储
+  mcp_server.py   零依赖 stdio MCP
+  llm_extract.py  可选 LLM 事实抽取
   engine.py       编排、持久化、巩固、快照
   agent.py        AgentMemory 门面（context / observe / end_session）
   api.py          标准库 HTTP API
   dashboard.html  零依赖可视化面板
   cli.py          命令行
-experiments/      五个实验 + 检索基线 + 回放 harness
-tests/             89 项测试
+experiments/      五个实验 + 检索基线 + 回放 harness + held-out 评测
+tests/             104 项测试
 docs/             教程、研究、设计、实验、命名、路线图
 ```
 
@@ -335,9 +349,9 @@ docs/             教程、研究、设计、实验、命名、路线图
 
 ## 路线图
 
-- **v0.1.2（当前）** 本地实验版：核心引擎、CLI、面板、`AgentMemory` 接入层、80 项测试、5 个实验。
-- **v0.2** 评价适配器（LLM / 结构化输入）、真实嵌入后端、SQLite 存储、导入导出。
-- **v0.3** MCP Server 与 Agent 框架适配（Letta / LangGraph / 自建循环）。
+- **v0.2.0（当前）** 可靠性升级：多值事实/事件时间/纠正、安全边界、MCP、SQLite 可选后端、held-out 评测、104 项测试、50 轮本地模型实测。
+- **v0.2** 静态加密与保留期、多用户命名空间、FTS/向量索引、reranker、100+ 条中文检索基准、人工盲评。
+- **v0.3** Agent 框架适配包（Letta / LangGraph / Dify / AstrBot）、远程 MCP、完整记忆编辑/导出 UI。
 - **v0.4** 参数拟合工具、个体化校准、更多环境变量（空气质量、噪声、社交密度）。
 - **v1.0** 开放基准、社区治理、稳定 API、隐私与安全审计。
 

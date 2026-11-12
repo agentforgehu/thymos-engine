@@ -66,7 +66,7 @@ def _load_script() -> list[dict[str, Any]]:
             "expect": ["林墨", "杭州"],
             "tags": ["探针"],
         },
-        {"gap": 2, "text": "我对花生过敏，千万别给我推荐含花生的东西。", "tags": ["健康"]},
+        {"gap": 2, "text": "我对花生和芒果过敏，千万别给我推荐含花生的东西。", "tags": ["健康"]},
         {"gap": 3, "text": "我是独立开发者，平时一个人做产品。", "tags": ["职业"]},
         {"gap": 4, "text": "我有个朋友叫阿岚，她做设计。", "tags": ["朋友"]},
         {"gap": 6, "text": "我一般晚上十一点前睡，早上七点起。", "tags": ["作息"]},
@@ -92,7 +92,8 @@ def _load_script() -> list[dict[str, Any]]:
             "gap": 2,
             "text": "我是不是对什么食物过敏？",
             "probe": True,
-            "expect": ["花生"],
+            "expect": ["花生", "芒果"],
+            "min_hits": 2,
             "tags": ["探针"],
         },
         {"gap": 4, "text": "周末想约阿岚去看展，她最近有空吗？", "tags": ["社交"]},
@@ -341,6 +342,7 @@ def main() -> int:
     parser.add_argument("--base-url", default="http://127.0.0.1:8080/v1")
     parser.add_argument("--model", default="qwen3.6-35b-a3b")
     parser.add_argument("--turns", type=int, default=60)
+    parser.add_argument("--start", type=int, default=1, help="1-based first turn")
     parser.add_argument("--state", default=str(ROOT / ".work" / "longrun" / "state.json"))
     parser.add_argument("--out", default=str(ROOT / ".work" / "longrun" / "report.json"))
     parser.add_argument("--md", default=str(ROOT / ".work" / "longrun" / "report.md"))
@@ -349,9 +351,13 @@ def main() -> int:
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--max-chars", type=int, default=900)
     args = parser.parse_args()
 
-    script = _load_script()[: max(1, min(args.turns, len(_load_script())))]
+    full_script = _load_script()
+    start_turn = max(1, args.start)
+    end = min(len(full_script), start_turn - 1 + max(1, args.turns))
+    script = full_script[start_turn - 1 : end]
     state_path = Path(args.state)
     out_path = Path(args.out)
     md_path = Path(args.md)
@@ -364,12 +370,12 @@ def main() -> int:
 
     config = ThymosConfig(offline=True, seed=7)
     profile = Profile(name="林墨", location_name="杭州", timezone="Asia/Shanghai")
-    start = datetime.fromisoformat("2026-03-01T09:00:00+08:00").timestamp()
-    memory = AgentMemory(str(state_path), profile=profile, config=config, now=start)
+    now0 = datetime.fromisoformat("2026-03-01T09:00:00+08:00").timestamp()
+    memory = AgentMemory(str(state_path), profile=profile, config=config, now=now0)
     client = LocalClient(args.base_url, args.model, timeout=args.timeout)
 
     records: list[dict[str, Any]] = []
-    if out_path.exists() and not args.fresh:
+    if args.start == 1 and out_path.exists() and not args.fresh:
         try:
             previous = json.loads(out_path.read_text(encoding="utf-8"))
             records = previous.get("turns", [])
@@ -381,7 +387,8 @@ def main() -> int:
     print(f"local long-run: model={args.model} turns={len(script)} base={args.base_url}", flush=True)
     print(f"state={state_path}", flush=True)
 
-    for index, item in enumerate(script, start=1):
+    for offset, item in enumerate(script):
+        index = start_turn + offset
         if index <= len(records):
             continue
         gap = float(item.get("gap", 0))
@@ -390,7 +397,12 @@ def main() -> int:
             memory.mind.profile.location_name = str(item["move_to"])
             memory.mind.tick(1.0)  # refresh weather/environment at the new location
 
-        context = memory.context(str(item["text"]), top_k=args.top_k, review=False)
+        context = memory.context(
+            str(item["text"]),
+            top_k=args.top_k,
+            review=False,
+            max_chars=args.max_chars,
+        )
         snap_before = memory.snapshot()
         state_brief = (
             f"心境 {snap_before['affect']['mood']['valence']:+.2f}，"

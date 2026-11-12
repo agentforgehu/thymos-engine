@@ -2,6 +2,36 @@
 
 本项目遵循语义化版本（SemVer）。研究性 API 在 1.0 前可能变化，破坏性变更会写入此处。
 
+## [0.2.0] — 2026-11-13
+
+P0–P2 可靠性升级：把“能跑”推进到“能被检验、能被纠正、能被嵌入”。
+
+### Added
+
+- 事实层支持多值谓词（过敏、宠物、项目、朋友）、`observed_at`/`source`/`confidence`、事件时间（未来搬家不提前改写当前城市）、`correct()` 与 `delete()`。
+- `thymos.safety`：PII 脱敏、控制字符清理、注入短语替换、`<memory trust="untrusted">` 边界；`render_context()` 默认启用。
+- `thymos.tokens`：保守 token 估算与硬预算裁剪；`AgentMemory.context(max_tokens=...)`。
+- 混合检索：在语义/标签/地点/天气/时间之外加入词法通道，`recall()` 传入查询文本。
+- `thymos.mcp_server`：零依赖 stdio MCP，提供 `memory_context`、`memory_observe`、`memory_recall`、`memory_correct_fact`、`memory_delete_fact`、`memory_snapshot`。
+- `thymos.llm_extract.LLMFactExtractor`：可选 LLM 结构化抽取，带 allow-list、JSON 校验与规则兜底。
+- HTTP API：Bearer token 认证、`/api/facts`、`/api/facts/correct`、`/api/facts/delete`、`/api/memories/delete`；面板加入当前事实查看/删除。
+- `experiments/heldout_eval.py`：120 个模板生成的 held-out 多会话案例，thymos/recent/full/summary/rag 五条件，报告准确率、95% CI、上下文召回、陈旧值泄漏、假记忆率、字符/token/延迟。
+- `docs/LOCAL_LLM_50_TEST.md`：本地 35B 模型 50 轮连续测试（同一状态文件、5 段 × 10 轮），16/16 探针通过，0 旧值误用。
+- 15 项新测试（安全、token、MCP、API、LLM 抽取、SQLite、多值事实），总计 104 项。
+
+### Changed
+
+- `AgentMemory.context()` 支持 `max_tokens`，并把事实块与情景记忆一起放进信任边界。
+- `AgentMemory.observe()` 支持 `learn_facts=False`；新增 `observe_llm()`、`facts()`、`correct_fact()`、`delete_fact()`。
+- `engine.save()` 尽力将状态文件权限设为 `0600`。
+- `serve` 增加 `--token` / `THYMOS_API_TOKEN`；默认仍为无 token 的 localhost 面板。
+
+### Known limits
+
+- 事实抽取的默认路径仍是规则，不是通用语义理解；LLM 抽取是可选适配器。
+- 仍没有倒排/向量索引、跨进程写锁、静态加密和多用户命名空间；SQLite 只是可选存储后端。
+- held-out 是合成案例，不是人类研究或公开 benchmark；真实结论需要更多模型、种子和人工盲评。
+
 ## [0.1.1] — 2026-11-12
 
 面向接入的补丁版：不改变核心动力学，只降低“把它接进 Bot”的门槛。

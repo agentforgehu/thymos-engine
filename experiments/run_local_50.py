@@ -66,10 +66,13 @@ def main() -> int:
     parser.add_argument("--exe", default=str(DEFAULT_EXE))
     parser.add_argument("--model", default=str(DEFAULT_MODEL))
     parser.add_argument("--turns", type=int, default=60)
+    parser.add_argument("--start", type=int, default=1)
     parser.add_argument("--max-tokens", type=int, default=220)
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--max-chars", type=int, default=900)
     parser.add_argument("--fresh", action="store_true", default=True)
+    parser.add_argument("--resume", action="store_true", help="keep the state file and continue")
     parser.add_argument("--script", default=str(ROOT / "experiments" / "longrun_local.py"))
     parser.add_argument("--script-args", default="")
     args = parser.parse_args()
@@ -141,14 +144,19 @@ def main() -> int:
                     "qwen3.6-35b-a3b",
                     "--turns",
                     str(args.turns),
+                    "--start",
+                    str(args.start),
                     "--max-tokens",
                     str(args.max_tokens),
                     "--temperature",
                     str(args.temperature),
                     "--top-k",
                     str(args.top_k),
-                    "--fresh",
+                    "--max-chars",
+                    str(args.max_chars),
                 ]
+                if not args.resume:
+                    test_cmd.append("--fresh")
             else:
                 test_cmd += shlex.split(args.script_args)
                 test_cmd += [

@@ -6,16 +6,16 @@
 
 A local-first, inspectable engine that couples forgetting curves, appraisal-based affect, endocrine modulation, and real-world environment.
 
-[中文](README.md) · [Tutorial (Chinese)](docs/TUTORIAL.md) · [Research](docs/RESEARCH.md) · [Design](docs/DESIGN.md) · [Experiments](docs/EXPERIMENTS.md) · [Evaluation (Chinese)](docs/EVALUATION.md) · [Naming](docs/NAMING.md) · [Roadmap](docs/ROADMAP.md)
+[中文](README.md) · [Tutorial (Chinese)](docs/TUTORIAL.md) · [MCP (Chinese)](docs/MCP.md) · [P0–P2 upgrade (Chinese)](docs/UPGRADE_P0_P2.md) · [Research](docs/RESEARCH.md) · [Design](docs/DESIGN.md) · [Experiments](docs/EXPERIMENTS.md) · [Evaluation (Chinese)](docs/EVALUATION.md) · [Naming](docs/NAMING.md) · [Roadmap](docs/ROADMAP.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.1.2%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.2.0%20alpha-f59e0b)
 
 </div>
 
-> **Status: v0.1.2, local research sandbox.** This is not a clinically validated model of emotion, and it is not conscious. It is a set of inspectable dynamical hypotheses: what if memory, affect, hormones, sleep and weather shared one clock?
+> **Status: v0.2.0, local research sandbox.** This is not a clinically validated model of emotion, and it is not conscious. It is a set of inspectable dynamical hypotheses: what if memory, affect, hormones, sleep and weather shared one clock? 0.2.0 adds a factual memory layer, safety boundaries, MCP and held-out evaluation; it is still not production-grade memory.
 
 ---
 

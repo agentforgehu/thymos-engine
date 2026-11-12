@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hmac
 import os
 import threading
 import webbrowser
@@ -16,6 +17,18 @@ from .engine import Thymos
 from .types import Appraisal
 
 
+def token_matches(authorization: str | None, x_token: str | None, expected: str | None) -> bool:
+    """Constant-time bearer/X-Thymos-Token check used by the HTTP handler."""
+    if not expected:
+        return True
+    supplied = (authorization or "").strip()
+    if supplied.lower().startswith("bearer "):
+        supplied = supplied[7:].strip()
+    else:
+        supplied = (x_token or "").strip()
+    return bool(supplied) and hmac.compare_digest(supplied, expected)
+
+
 def _json_response(handler: BaseHTTPRequestHandler, payload: Any, status: int = 200) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
@@ -26,7 +39,7 @@ def _json_response(handler: BaseHTTPRequestHandler, payload: Any, status: int = 
     handler.wfile.write(body)
 
 
-def make_handler(engine: Thymos, lock: threading.Lock):
+def make_handler(engine: Thymos, lock: threading.Lock, token: str | None = None):
     dashboard = Path(__file__).with_name("dashboard.html")
 
     class Handler(BaseHTTPRequestHandler):
@@ -35,9 +48,27 @@ def make_handler(engine: Thymos, lock: threading.Lock):
         def log_message(self, fmt: str, *args: Any) -> None:  # silence default logging
             return
 
+        def _authorized(self) -> bool:
+            """Optional bearer-token gate.
+
+            The default localhost dashboard has no token, preserving the
+            zero-config experience.  Any non-loopback deployment should set
+            ``THYMOS_API_TOKEN`` (or pass ``token=...`` to ``serve``).
+            """
+            if token_matches(
+                self.headers.get("Authorization"),
+                self.headers.get("X-Thymos-Token"),
+                token,
+            ):
+                return True
+            _json_response(self, {"error": "unauthorized"}, 401)
+            return False
+
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
             path = parsed.path
+            if path.startswith("/api/") and path != "/api/health" and not self._authorized():
+                return
             if path in ("/", "/index.html"):
                 try:
                     body = dashboard.read_bytes()
@@ -64,6 +95,14 @@ def make_handler(engine: Thymos, lock: threading.Lock):
                     payload = [m.to_public_dict(engine.now, retrievability(m.age_days(engine.now), m.stability)) for m in items]
                 _json_response(self, {"items": payload, "total": len(engine.store)})
                 return
+            if path == "/api/facts":
+                qs = parse_qs(parsed.query)
+                include_history = qs.get("history", ["0"])[0] in ("1", "true", "yes")
+                with lock:
+                    facts = engine.facts.all() if include_history else engine.facts.active(engine.now)
+                    payload = [f.to_dict() for f in sorted(facts, key=lambda f: (f.predicate, f.valid_from))]
+                _json_response(self, {"items": payload, "total": len(payload)})
+                return
             if path == "/api/export":
                 with lock:
                     _json_response(self, engine.to_dict())
@@ -75,6 +114,8 @@ def make_handler(engine: Thymos, lock: threading.Lock):
 
         def do_POST(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
+            if not self._authorized():
+                return
             length = int(self.headers.get("Content-Length", "0") or 0)
             raw = self.rfile.read(length) if length else b"{}"
             try:
@@ -150,16 +191,60 @@ def make_handler(engine: Thymos, lock: threading.Lock):
                 engine.save()
                 return {"memory": item.to_dict(), "state": engine.snapshot()}
 
+            if path == "/api/facts/correct":
+                predicate = (body.get("predicate") or "").strip()
+                value = (body.get("value") or "").strip()
+                if not predicate or not value:
+                    raise ValueError("predicate and value are required")
+                fact = engine.facts.correct(
+                    body.get("subject", "user"),
+                    predicate,
+                    value,
+                    engine.now,
+                    old_value=body.get("old_value"),
+                    confidence=float(body.get("confidence", 0.95)),
+                )
+                engine.save()
+                return {"fact": fact.to_dict(), "state": engine.snapshot()}
+
+            if path == "/api/facts/delete":
+                count = engine.facts.delete(
+                    engine.now,
+                    subject=body.get("subject", "user"),
+                    predicate=body.get("predicate"),
+                    value=body.get("value"),
+                    fact_id=body.get("fact_id"),
+                )
+                engine.save()
+                return {"deleted": count, "state": engine.snapshot()}
+
+            if path == "/api/memories/delete":
+                memory_id = (body.get("id") or "").strip()
+                if not memory_id:
+                    raise ValueError("id is required")
+                removed = engine.store.remove(memory_id)
+                engine.save()
+                return {"deleted": bool(removed), "state": engine.snapshot()}
+
             raise KeyError(f"unknown endpoint: {path}")
 
     return Handler
 
 
-def serve(engine: Thymos, host: str = "127.0.0.1", port: int = 8787, open_browser: bool = True) -> None:
+def serve(
+    engine: Thymos,
+    host: str = "127.0.0.1",
+    port: int = 8787,
+    open_browser: bool = True,
+    token: str | None = None,
+) -> None:
+    token = token if token is not None else os.environ.get("THYMOS_API_TOKEN")
     lock = threading.Lock()
-    server = ThreadingHTTPServer((host, port), make_handler(engine, lock))
+    server = ThreadingHTTPServer((host, port), make_handler(engine, lock, token=token))
     url = f"http://{host}:{port}/"
     print(f"Thymos 面板已启动：{url}")
+    if token:
+        print("API 已启用 Bearer token 认证（THYMOS_API_TOKEN）。")
     print("按 Ctrl+C 停止。状态会自动保存到", os.path.abspath(engine.state_path or ".thymos/state.json"))
     if open_browser:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()

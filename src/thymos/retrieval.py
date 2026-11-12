@@ -15,6 +15,7 @@ from __future__ import annotations
 import math
 
 from .config import ThymosConfig
+from .embedding import tokenize
 from .forgetting import retrievability
 from .mathx import clamp, cosine, jaccard, sigmoid
 from .memory import MemoryStore
@@ -40,6 +41,7 @@ def context_similarity(
     query_tags: list[str],
     env: EnvironmentState | None,
     mood_valence: float,
+    lexical: float = 0.0,
 ) -> tuple[float, dict[str, float]]:
     sem = max(0.0, cosine(query_embedding, memory.embedding)) if query_embedding else 0.0
     tags = jaccard(query_tags, memory.tags) if query_tags else 0.0
@@ -47,10 +49,21 @@ def context_similarity(
     weather = 1.0 if env and memory.context.get("weather_bucket") == env.weather_bucket else 0.0
     time_bucket = 1.0 if env and memory.context.get("time_bucket") == time_bucket_for(env) else 0.0
 
-    score = 0.55 * sem + 0.20 * tags + 0.10 * place + 0.08 * weather + 0.07 * time_bucket
+    # A small lexical channel makes the zero-dependency hash embedding less
+    # brittle for exact names, product codes and Chinese bigrams.  It is
+    # intentionally not allowed to dominate semantic/tag evidence.
+    score = (
+        0.40 * sem
+        + 0.20 * tags
+        + 0.15 * lexical
+        + 0.10 * place
+        + 0.08 * weather
+        + 0.07 * time_bucket
+    )
     mood_fit = 1.0 - abs(memory.valence - mood_valence) / 2.0
     components = {
         "semantic": sem,
+        "lexical": lexical,
         "tags": tags,
         "place": place,
         "weather": weather,
@@ -59,6 +72,15 @@ def context_similarity(
         "context": score,
     }
     return score, components
+
+
+def lexical_overlap(query: str, content: str) -> float:
+    """Query-normalised overlap of hashed n-gram tokens."""
+    q = set(tokenize(query or ""))
+    if not q:
+        return 0.0
+    c = set(tokenize(content or ""))
+    return len(q & c) / max(1, len(q))
 
 
 def time_bucket_for(env: EnvironmentState, hour: float | None = None) -> str:
@@ -88,6 +110,7 @@ def retrieve(
     affect: AffectState | None = None,
     endocrine=None,
     top_k: int = 5,
+    query_text: str | None = None,
 ) -> list[RetrievalResult]:
     query_embedding = query_embedding or []
     query_tags = query_tags or []
@@ -109,7 +132,15 @@ def retrieve(
             spread += weight * nr
         spread = min(1.5, spread)
 
-        ctx, parts = context_similarity(memory, query_embedding, query_tags, env, mood)
+        lexical = lexical_overlap(query_text or "", memory.content)
+        ctx, parts = context_similarity(
+            memory,
+            query_embedding,
+            query_tags,
+            env,
+            mood,
+            lexical=lexical,
+        )
         mood_congruence = parts["mood"]
         emotional = 0.5 * memory.arousal + 0.5 * abs(memory.valence)
 

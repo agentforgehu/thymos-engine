@@ -118,6 +118,12 @@
   .hits{display:flex;flex-direction:column;gap:7px;margin-top:10px}
   .hit{border-left:2px solid #2b6a55;padding:6px 0 6px 10px;font-size:12px;color:#c6d4e3}
   .hit b{color:var(--teal);font-weight:600;margin-right:6px}
+  .fact-list{display:flex;flex-direction:column;gap:7px;margin-top:4px}
+  .fact-row{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel-2);border-radius:10px;padding:7px 9px}
+  .fact-row b{font-size:11px;color:var(--muted);min-width:52px;font-weight:500}
+  .fact-row span{flex:1;font-size:12px;color:#dbe5f0;word-break:break-all}
+  .fact-row button{padding:4px 8px;font-size:10.5px;border-radius:7px}
+  .hint{color:var(--muted);font-size:11px;line-height:1.5;margin:8px 0 0}
   #toast{
     position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
     background:#1b2634;border:1px solid #2c3d50;color:#dbe7f4;padding:10px 16px;border-radius:11px;
@@ -184,6 +190,12 @@
     <section class="card">
       <h2>环境与节律</h2>
       <div class="env-grid" id="env-grid"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>当前事实</h2><span class="tag" id="fact-count">—</span></div>
+      <div class="fact-list" id="fact-list"><div class="empty">还没有结构化事实。</div></div>
+      <p class="hint">事实优先于情景记忆；删除只退休当前值，历史仍可用于“以前住哪”这类问题。</p>
     </section>
 
     <section class="card">
@@ -322,6 +334,23 @@ function renderMemories(items){
   }).join("");
 }
 
+function renderFacts(items){
+  const box = $("fact-list");
+  $("fact-count").textContent = `${items.length} 条`;
+  if(!items || !items.length){ box.innerHTML = '<div class="empty">还没有结构化事实。</div>'; return; }
+  const labels = {name:"姓名",city:"现居",address:"地址",allergy:"过敏",pet_name:"宠物",pet_breed:"品种",project:"项目",deadline:"截止",job:"职业",sleep:"入睡",wake:"起床",coffee_sugar:"咖啡糖",coffee_type:"咖啡"};
+  box.innerHTML = items.map(f=>`<div class="fact-row">
+    <b>${esc(labels[f.predicate] || f.predicate)}</b>
+    <span>${esc(f.value)}</span>
+    <button class="ghost" data-fact-id="${esc(f.id)}">删除</button>
+  </div>`).join("");
+}
+
+async function loadFacts(){
+  try{ renderFacts((await api("/api/facts")).items || []); }
+  catch(e){ /* 面板保持可用；错误由状态刷新提示 */ }
+}
+
 function renderEnv(env, profile){
   const cells = [
     ["天气", env.condition || "—"],
@@ -431,8 +460,20 @@ document.querySelectorAll("[data-sleep]").forEach(btn=>{
   }, e.target, "睡眠巩固"));
 });
 
+$("fact-list").addEventListener("click", async (e)=>{
+  const btn = e.target.closest("[data-fact-id]");
+  if(!btn) return;
+  await act(async ()=>{
+    const res = await api("/api/facts/delete", {fact_id:btn.dataset.factId});
+    render(res.state);
+    await loadFacts();
+    toast(`已退休 ${res.deleted} 条事实`);
+  }, btn, "删除事实");
+});
+
 window.addEventListener("resize", drawChart);
 refresh();
+loadFacts();
 setInterval(refresh, 3000);
 </script>
 </body>

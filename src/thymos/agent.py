@@ -22,7 +22,10 @@ from typing import Any
 from .config import Profile, ThymosConfig
 from .embedding import Embedder
 from .engine import Thymos
+from .facts import Fact
 from .mathx import clamp
+from .memory import MemoryStore
+from .tokens import estimate_tokens, trim_to_tokens
 from .types import MemoryItem, RetrievalResult
 
 # Rules are intentionally cheap and transparent.  Replace `importance` with a
@@ -100,6 +103,7 @@ class AgentMemory:
         offline: bool = True,
         now: float | None = None,
         embedder: Embedder | None = None,
+        store: MemoryStore | None = None,
     ) -> None:
         cfg = config or ThymosConfig(offline=offline)
         self.mind = Thymos(
@@ -108,6 +112,7 @@ class AgentMemory:
             state_path=state_path,
             now=now,
             embedder=embedder,
+            store=store,
         )
 
     # ------------------------------------------------------------------ read
@@ -129,6 +134,7 @@ class AgentMemory:
         min_score: float = 0.0,
         review: bool = True,
         max_chars: int | None = None,
+        max_tokens: int | None = None,
     ) -> str:
         """Return a compact prompt block for the current user turn.
 
@@ -138,15 +144,80 @@ class AgentMemory:
         ``max_chars`` is a hard prompt budget.  Structured facts are rendered
         first; only the remaining characters are spent on episodic memories.
         This is the recommended mode for a local model with a small context.
+        ``max_tokens`` is a conservative tokenizer-independent upper bound; if
+        both are supplied, the rendered block must satisfy both.
         """
         hits = self.recall(user_text, top_k=top_k, review=review)
         if min_score > 0:
             hits = [hit for hit in hits if hit.score >= min_score]
-        return self.mind.render_context(hits, query=user_text, max_chars=max_chars)
+        # A character budget cannot be mapped exactly to an unknown tokenizer.
+        # Use a generous character cap, then trim against the token estimate.
+        char_budget = max_chars
+        if max_tokens is not None:
+            token_char_cap = max(64, int(max_tokens * 3))
+            char_budget = token_char_cap if char_budget is None else min(char_budget, token_char_cap)
+        text = self.mind.render_context(hits, query=user_text, max_chars=char_budget)
+        if max_tokens is not None:
+            text = trim_to_tokens(text, max_tokens)
+            self.mind._last_context_stats.update(
+                {
+                    "chars": len(text),
+                    "tokens": estimate_tokens(text),
+                    "budget_tokens": max_tokens,
+                }
+            )
+        return text
 
     def snapshot(self) -> dict[str, Any]:
         """Return the full inspectable state (affect, endocrine, memory stats)."""
         return self.mind.snapshot()
+
+    def facts(self, *, active_only: bool = True) -> list[Fact]:
+        """List facts for a host-side correction/management UI."""
+        if active_only:
+            return sorted(self.mind.facts.active(self.mind.now), key=lambda f: (f.predicate, f.valid_from))
+        return sorted(self.mind.facts.all(), key=lambda f: (f.predicate, f.valid_from))
+
+    def correct_fact(
+        self,
+        predicate: str,
+        value: str,
+        *,
+        old_value: str | None = None,
+        subject: str = "user",
+        confidence: float = 0.95,
+    ) -> Fact:
+        """Correct a wrong/old fact and persist it."""
+        fact = self.mind.facts.correct(
+            subject,
+            predicate,
+            value,
+            self.mind.now,
+            old_value=old_value,
+            confidence=confidence,
+        )
+        self.save()
+        return fact
+
+    def delete_fact(
+        self,
+        *,
+        predicate: str | None = None,
+        value: str | None = None,
+        fact_id: str | None = None,
+        subject: str = "user",
+    ) -> int:
+        """Retire a fact (keeps history) and persist it."""
+        count = self.mind.facts.delete(
+            self.mind.now,
+            subject=subject,
+            predicate=predicate,
+            value=value,
+            fact_id=fact_id,
+        )
+        if count:
+            self.save()
+        return count
 
     # ----------------------------------------------------------------- write
     def observe(
@@ -157,6 +228,7 @@ class AgentMemory:
         importance: float | None = None,
         tags: list[str] | None = None,
         min_importance: float = 0.35,
+        learn_facts: bool = True,
     ) -> MemoryItem | None:
         """Encode one turn if it clears the importance threshold.
 
@@ -185,7 +257,46 @@ class AgentMemory:
             importance=score,
             tags=tags or ["对话"],
             source="agent",
+            learn_facts=learn_facts,
         )
+
+    def observe_llm(
+        self,
+        user_text: str,
+        extractor,
+        *,
+        importance: float | None = None,
+        tags: list[str] | None = None,
+        min_importance: float = 0.35,
+    ) -> MemoryItem | None:
+        """Store a turn and use a host-supplied LLM extractor for facts.
+
+        The episodic memory is still written by the normal path; only the
+        structured fact layer is delegated.  ``extractor.extract(text, at)``
+        must return objects with ``predicate``, ``value``, ``event_at``,
+        ``confidence`` and ``source`` (see :class:`thymos.llm_extract.LLMFactExtractor`).
+        """
+        item = self.observe(
+            user_text,
+            importance=importance,
+            tags=tags,
+            min_importance=min_importance,
+            learn_facts=False,
+        )
+        if item is None:
+            return None
+        for candidate in extractor.extract(user_text, self.mind.now):
+            self.mind.facts.add(
+                "user",
+                candidate.predicate,
+                candidate.value,
+                self.mind.now,
+                event_at=candidate.event_at,
+                source=getattr(candidate, "source", "llm"),
+                memory_id=item.id,
+                confidence=float(getattr(candidate, "confidence", 0.8)),
+            )
+        return item
 
     def end_session(self, hours: float = 7.5) -> dict[str, Any]:
         """Simulate sleep consolidation and persist the state."""
