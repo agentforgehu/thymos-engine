@@ -2,6 +2,18 @@
 
 本项目遵循语义化版本（SemVer）。研究性 API 在 1.0 前可能变化，破坏性变更会写入此处。
 
+## [Unreleased] — 2026-11-13
+
+### Added
+
+- `docs/STRATEGY.md`：目标校准与同类项目调研。把“P0–P2 可靠性升级”与“科学验证”拆开，提出 E（工程）/ S（科学）/ P（产品）标签、五条可证伪主张、Thymos-30 试点与 12 个月 OKR。
+- 同类项目对照：MemoryBank、emotional-memory、YourMemory、OpenFeelz、MyPersona、Memary、Mem0、MemoryOS、MemOS、Letta、Graphiti、A-MEM、HippoRAG、MemU、MemEmo。
+
+### Changed
+
+- `README.md` 导航加入 `docs/STRATEGY.md`。
+- `docs/ROADMAP.md` 增加标签说明：项目阶段、问题优先级、科学验证不要混用。
+
 ## [0.2.0] — 2026-11-13
 
 P0–P2 可靠性升级：把“能跑”推进到“能被检验、能被纠正、能被嵌入”。
