@@ -17,7 +17,7 @@ deterministic state and exposes ``memory.mind`` when you need full control.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Callable
 
 from .appraisal import estimate_appraisal
 from .config import Profile, ThymosConfig
@@ -26,10 +26,11 @@ from .engine import Thymos
 from .facts import Fact
 from .mathx import clamp
 from .memory import MemoryStore
-from .types import MemoryItem, RetrievalResult
+from .types import Appraisal, MemoryItem, RetrievalResult
 
-# Rules are intentionally cheap and transparent.  Replace `importance` with a
-# structured LLM appraisal when you need nuance, but keep this as the fallback.
+# Rules are intentionally cheap and transparent.  Pass a structured
+# `appraisal` (from a host or `LLMAppraiser`) when you need nuance; this
+# remains the fallback.
 _REMINDER = re.compile(r"提醒|答应|约定|承诺|截止|deadline")
 _PROMISE = re.compile(r"生日|面试|考试")
 _PREFERENCE = re.compile(r"我不吃|我喜欢|我讨厌|过敏|忌口|最爱|不喜欢|我习惯")
@@ -42,11 +43,15 @@ _QUESTION = re.compile(
 )
 
 
-def estimate_importance(text: str) -> float:
+def estimate_importance(
+    text: str, *, appraisal: Appraisal | None = None
+) -> float:
     """A transparent 0–1 importance prior for a chat message.
 
     This is deliberately rule-based: it is fast, deterministic and easy to
     audit.  It is not a claim about what a person would find important.
+    When ``appraisal`` is supplied, its desirability is reused instead of
+    running the lexical appraiser again.
     """
     text = (text or "").strip()
     if not text:
@@ -57,7 +62,7 @@ def estimate_importance(text: str) -> float:
     # `perceive`, and mood appears not to react at all.
     if _SMALLTALK.match(text):
         return 0.20
-    appraisal = estimate_appraisal(text)
+    appraisal = appraisal or estimate_appraisal(text)
     if abs(appraisal.desirability) >= 0.30:
         return 0.85
     # A reminder/commitment is worth keeping even when phrased as a question.
@@ -99,6 +104,10 @@ class AgentMemory:
     embedder:
         Optional ``str -> list[float]`` function.  Defaults to the deterministic
         hash n-gram embedder; pass ``OllamaEmbedder`` for Chinese semantics.
+    appraiser:
+        Optional ``str -> Appraisal`` callable.  When supplied (for example
+        :class:`thymos.llm_appraisal.LLMAppraiser`), it replaces the lexical
+        appraisal; the lexical rules remain the fallback and the default.
     """
 
     def __init__(
@@ -111,6 +120,7 @@ class AgentMemory:
         now: float | None = None,
         embedder: Embedder | None = None,
         store: MemoryStore | None = None,
+        appraiser: Callable[[str], Appraisal] | None = None,
     ) -> None:
         cfg = config or ThymosConfig(offline=offline)
         self.mind = Thymos(
@@ -121,6 +131,7 @@ class AgentMemory:
             embedder=embedder,
             store=store,
         )
+        self.appraiser = appraiser
 
     # ------------------------------------------------------------------ read
     def recall(
@@ -250,6 +261,7 @@ class AgentMemory:
         tags: list[str] | None = None,
         min_importance: float = 0.35,
         learn_facts: bool = True,
+        appraisal: Appraisal | None = None,
     ) -> MemoryItem | None:
         """Encode one turn if it clears the importance threshold.
 
@@ -259,11 +271,35 @@ class AgentMemory:
         ``assistant_text`` is optional and off by default.  Only include it
         when the reply contains a commitment or self-disclosure worth keeping;
         storing every model reply makes hallucinations permanent.
+
+        ``appraisal`` can be supplied by a host that already has structured
+        output; otherwise ``appraiser`` (for example ``LLMAppraiser``) is
+        used, and the lexical rules are the final fallback.
         """
         text = (user_text or "").strip()
         if not text:
             return None
-        score = estimate_importance(text) if importance is None else clamp(importance)
+        # Judge once, use twice: the same appraisal decides whether the turn
+        # is important and how it moves affect.  The old path ran the lexical
+        # rules in `estimate_importance` and again in `perceive`.
+        if (
+            appraisal is None
+            and importance is None
+            and _SMALLTALK.match(text)
+            and min_importance > 0.20
+        ):
+            return None
+        if appraisal is None:
+            appraisal = (
+                self.appraiser(text)
+                if self.appraiser is not None
+                else estimate_appraisal(text)
+            )
+        score = (
+            clamp(importance)
+            if importance is not None
+            else estimate_importance(text, appraisal=appraisal)
+        )
         if score < min_importance:
             return None
         # A question is a request for information, not a self-disclosure.
@@ -284,6 +320,7 @@ class AgentMemory:
             tags=tags or ["对话"],
             source="agent",
             learn_facts=learn_facts,
+            appraisal=appraisal,
         )
 
     def observe_llm(

@@ -2,6 +2,28 @@
 
 本项目遵循语义化版本（SemVer）。研究性 API 在 1.0 前可能变化，破坏性变更会写入此处。
 
+## [0.3.2] — 2026-11-13
+
+评价分层版：有 LLM 的宿主可以让模型填 `Appraisal`，Thymos 只负责状态、记忆和审计；规则保留为默认与失败兜底。`observe()` 不再把同一句话判断两次。
+
+### Added
+
+- `thymos.llm_appraisal.LLMAppraiser`：`chat(messages) -> str` 适配器，输出结构化评价 JSON；字段校验、数值 clamp、agency 枚举、失败回退。
+- `experiments/appraisal_llm_probe.py`：规则与本地 LLM 的 7 条对照探针，输出标签、desirability、agency、耗时和证据。
+- `docs/LLM_APPRAISAL.md`：为什么不是只判正负、三种接法、成本、真实 35B 对照与效度边界。
+
+### Changed
+
+- `AgentMemory.observe()`：一次 `Appraisal` 同时用于 `estimate_importance` 和 `perceive`；删掉重复规则调用。
+- `AgentMemory` 新增 `appraiser=` 与 `observe(..., appraisal=)`；默认仍是规则。
+- 版本号 0.3.1 → 0.3.2；测试总数 221 → 228。
+
+### Boundaries
+
+- 7 条本地探针不是 benchmark；没有人工 ground truth，不能宣称 LLM 评价更准。
+- 本地 35B 额外评价耗时 2.9–7.4 秒/条；未默认开启。
+- 讽刺、引用、转述和模型注入仍未解决；`LLMAppraiser` 只把模型输出当数据。
+
 ## [0.3.1] — 2026-11-13
 
 语言与心境审计版：修复中文口语影响识别、否定边界、短消息被重要性门槛丢弃，并校准聊天尺度的心境响应。完整证据与未关闭项见 `docs/LANGUAGE_MOOD_AUDIT.md`。

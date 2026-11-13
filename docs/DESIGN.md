@@ -95,7 +95,7 @@ I = |d| * (0.50 + 0.50 * relevance) * (0.55 + 0.45 * stakes)
 `estimate_appraisal(text)` 使用：
 
 - 中英文情感词典，带词权重；
-- **逐次出现的否定判断**：只在情感词前两个字符内检测“不/没/无/别/未”，避免把“没想到”误判为负面；
+- **逐次出现的否定判断**：分句内局部窗口 + 显式例外（`特别/别人/差不多/没想到`）+ 双重否定 + 词内例外；不再用前两个字符的盲匹配；
 - 显式情绪词修正：
   - “生气/愤怒”→ agency=other，control≥0.68；
   - “害怕/恐惧”→ certainty≤0.35，control≤0.25；
@@ -103,7 +103,10 @@ I = |d| * (0.50 + 0.50 * relevance) * (0.55 + 0.45 * stakes)
 - 高利害词、确定性词、控制感词、其他主体词；
 - 返回 `note` 记录命中的词，便于审计。
 
-这不是语义模型，只是让 quickstart 与测试在没有 LLM 时也能跑。生产环境应替换为结构化评价或 LLM，并保留 `Appraisal` 作为契约。
+这不是语义模型，只是让 quickstart 与测试在没有 LLM 时也能跑。生产环境可以把
+`LLMAppraiser`（`chat(messages) -> str`，输出结构化 `Appraisal`）传给
+`AgentMemory(appraiser=...)`，或由宿主直接传 `observe(..., appraisal=...)`；
+`Appraisal` 仍是契约，规则只是 fallback。详见 [LLM_APPRAISAL.md](LLM_APPRAISAL.md)。
 
 ---
 

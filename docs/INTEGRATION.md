@@ -258,17 +258,29 @@ mind = Thymos(embedder=embed)
 ### 4.2 评价
 
 ```python
+from thymos import AgentMemory, LLMAppraiser
+
+def chat(messages):
+    # 你的 LLM；返回文本
+    ...
+
+memory = AgentMemory(".thymos/bot.json", appraiser=LLMAppraiser(chat, fallback=True))
+memory.observe(user_text)       # 一次评价；重要性与 perceive 共用
+```
+
+如果宿主已经能返回结构化字段，直接传 `Appraisal`，不增加 LLM 调用：
+
+```python
 from thymos.types import Appraisal
 
 def appraise_with_llm(text: str) -> Appraisal:
-    # 调用你的 LLM，要求返回 JSON schema
     data = my_llm_json(prompt=text, schema=Appraisal)
     return Appraisal(**data).clamped()
 
-mind.perceive(text, appraisal=appraise_with_llm(text))
+memory.observe(text, appraisal=appraise_with_llm(text))
 ```
 
-保留 `note` 字段记录来源（模型名、prompt hash、置信度），便于审计。
+保留 `note` 字段记录来源（模型名、prompt hash、置信度），便于审计。默认规则评价、LLM 评价的 schema、成本与效度边界见 [LLM_APPRAISAL.md](LLM_APPRAISAL.md)。
 
 ### 4.3 天气
 
