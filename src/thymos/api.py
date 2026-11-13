@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from .appraisal import estimate_appraisal
+from .appraisal import estimate_appraisal, explain_appraisal
 from .engine import Thymos
 from .types import Appraisal
 
@@ -138,6 +138,33 @@ def make_handler(engine: Thymos, lock: threading.Lock, token: str | None = None)
                 _json_response(self, {"error": f"{type(exc).__name__}: {exc}"}, 400)
 
         def _dispatch(self, path: str, body: dict[str, Any]) -> Any:
+            if path == "/api/appraise":
+                # Debug-only: dimensions in, label + threshold trace out.
+                # It never mutates or persists the affect state.
+                raw = body.get("appraisal")
+                if isinstance(raw, dict):
+                    appraisal = Appraisal.from_dict(raw)
+                elif any(
+                    key in body
+                    for key in (
+                        "desirability",
+                        "agency",
+                        "control",
+                        "certainty",
+                        "stakes",
+                        "goal_relevance",
+                        "novelty",
+                        "norm_compliance",
+                    )
+                ):
+                    appraisal = Appraisal.from_dict(body)
+                else:
+                    text = (body.get("text") or body.get("content") or "").strip()
+                    if not text:
+                        raise ValueError("text or appraisal is required")
+                    appraisal = estimate_appraisal(text)
+                return explain_appraisal(appraisal)
+
             if path == "/api/perceive":
                 content = (body.get("content") or "").strip()
                 if not content:

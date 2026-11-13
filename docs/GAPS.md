@@ -189,7 +189,7 @@
 
 ### 8.3 结论
 
-0.3.1 关闭的是**可复现的规则错误和路径错误**：否定边界、口语线索、短消息被丢弃、心境参数过钝。它没有关闭「中文情绪理解」这个开放问题；讽刺、引用、偏好/事件区分、真实用户研究仍然在外面。当前测试总数 **228 项**，30 轮定向长测 30/30，50 轮原长测 17/18（一次猫探针 top-k 漏检）。
+0.3.1 关闭的是**可复现的规则错误和路径错误**：否定边界、口语线索、短消息被丢弃、心境参数过钝。它没有关闭「中文情绪理解」这个开放问题；讽刺、引用、偏好/事件区分、真实用户研究仍然在外面。当前测试总数 **236 项**，30 轮定向长测 30/30，50 轮原长测 17/18（一次猫探针 top-k 漏检）。
 
 ## 9. 0.3.2 LLM 评价分层（2026-11-13）
 
@@ -216,3 +216,27 @@
 ### 9.3 结论
 
 0.3.2 不是“用 LLM 替换一切”，而是把职责分开：**LLM 负责语义评价，Thymos 负责状态、记忆和审计。** 当前默认仍是规则，LLM 是可选主评价器；在完成 A/B 前，不应该把“LLM 判断更准”写成事实。
+
+## 10. 0.3.3 评价落点修复（2026-11-13）
+
+### 10.1 已关闭
+
+| 问题 | 根因 | 修复 | 证据 |
+|---|---|---|---|
+| `LLMAppraiser` 返回 `d=-0.3`，标签仍 neutral | 模型 JSON 可能外层嵌套 `appraisal/result/data`；旧适配器只读顶层，`desirability` 静默默认为 0 | 自动解包三种外层，并合并外层 `note` | `test_llm_appraiser_unwraps_nested_appraisal_payload` |
+| 高 novelty 盖住强负向 | surprise 分支原为 `abs(d) < 0.35` | 收紧到 `abs(d) < 0.22` | `test_high_novelty_does_not_mask_a_strong_negative_event` |
+| 维度正确但无法定位标签 | 没有可观察的映射轨迹 | 新增 `explain_appraisal()` 与 `/api/appraise`，返回实际维度、标签和阈值布尔值 | `tests/test_api_appraise.py` |
+| 两个样例没有端到端回归 | 缺少 LLM 维度到 `AgentMemory` 标签的测试 | 加 `d=-0.3 / other / ctrl=0.2` 与 `d=-0.6 / circumstance` 测试 | `test_llm_supplied_negative_dimensions_do_not_collapse_to_neutral` 等 |
+
+### 10.2 仍开放
+
+| 级别 | 问题 | 现状 | 下一步 |
+|---|---|---|---|
+| P1 | 无法确认真实 DeepSeek 返回的 JSON 形状 | 本地测试覆盖 flat/nested 两种；已加 `LLMAppraiser.last_raw/last_error`（单线程） | 用 `last_raw` 或 `/api/appraise` 对一次真实载荷 |
+| P1 | 字段缺失没有告警 | 缺省值仍会静默填充 | 增加 `coverage` / `missing_fields` 到调试返回，生产可告警 |
+| P2 | `LLMAppraiser` 仍是同步阻塞 | 额外 2.9–7.4 秒/条 | 异步/批处理/低置信门控 |
+| P2 | 讽刺、引用、转述归因仍弱 | LLM 可能给负分再被映射成 sadness | 对话历史 + 说话人归因 + 人工盲评 |
+
+### 10.3 结论
+
+0.3.3 修的是**可复现的落点错误**：维度没有进入 `Appraisal`，或者 novelty 抢走了强负向。它没有证明 LLM 评价更准；真实 DeepSeek 载荷仍需用 `/api/appraise` 对一次，确认 `appraisal.desirability` 不是 0。当前 236 项测试，0.3.3 的标签回归与 API 调试端点均通过。

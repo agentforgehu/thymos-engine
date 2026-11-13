@@ -25,6 +25,7 @@ a seed, so experiments are reproducible.
 
 from .config import Profile, ThymosConfig
 from .backends import MemoryBackend
+from .appraisal import explain_appraisal
 from .control import AuditTrace, ContextPlan, MemoryController, OperatorReport
 from .engine import Thymos
 from .agent import AgentMemory, estimate_importance
@@ -37,7 +38,7 @@ from .sqlite_store import SQLiteMemoryStore
 from .tokens import estimate_tokens, trim_to_tokens
 from .types import Appraisal, Emotion, MemoryItem, RetrievalResult
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"
 
 __all__ = [
     "Thymos",
@@ -53,6 +54,7 @@ __all__ = [
     "classify_intent",
     "estimate_importance",
     "LLMAppraiser",
+    "explain_appraisal",
     "OllamaEmbedder",
     "OpenAIEmbedder",
     "EmbeddingError",

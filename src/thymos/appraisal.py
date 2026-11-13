@@ -314,7 +314,10 @@ def appraise(appraisal: Appraisal) -> Emotion:
     future = "future" in a.note
     uncertain_future = "uncertain-future" in a.note
 
-    if novelty >= 0.72 and abs(d) < 0.35:
+    # Surprise should not swallow a clear negative/positive event.  A strong
+    # d plus high novelty is still a loss/gain first; novelty only changes the
+    # label when the valence is weak.
+    if novelty >= 0.72 and abs(d) < 0.22:
         label = "surprise"
     elif future and abs(d) < 0.22:
         # "Anticipation" is a future-oriented appraisal, not the default for
@@ -371,6 +374,43 @@ def appraise(appraisal: Appraisal) -> Emotion:
         half_life_min=EMOTION_HALF_LIFE.get(label, 60.0),
         appraisal=a,
     )
+
+
+def explain_appraisal(appraisal: Appraisal) -> dict[str, object]:
+    """Return the dimension-to-label decision as JSON-friendly data.
+
+    This is a debugging contract, not a second appraisal.  It is deliberately
+    explicit about the thresholds so a host can see why an LLM supplied
+    ``desirability=-0.3`` but the label still looked neutral.
+    """
+    a = appraisal.clamped()
+    emotion = appraise(a)
+    d = a.desirability
+    if abs(d) < 0.12:
+        neutral_reason = "desirability_inside_deadband"
+    elif abs(d) < 0.22:
+        neutral_reason = "below_effect_threshold"
+    elif emotion.label == "neutral":
+        neutral_reason = "unexpected_neutral_branch"
+    else:
+        neutral_reason = ""
+    return {
+        "appraisal": a.to_dict(),
+        "emotion": emotion.to_dict(),
+        "decision": {
+            "label": emotion.label,
+            "strong_positive": d >= 0.22,
+            "strong_negative": d <= -0.22,
+            "novelty_override": a.novelty >= 0.72 and abs(d) < 0.22,
+            "future_override": "future" in a.note and abs(d) < 0.22,
+            "norm_violation": a.norm_compliance <= -0.45,
+            "other_agency_high_control": (
+                a.agency == "other" and a.control >= 0.55 and a.stakes >= 0.40
+            ),
+            "low_certainty_low_control": a.certainty < 0.42 and a.control < 0.55,
+            "neutral_reason": neutral_reason,
+        },
+    }
 
 
 def estimate_appraisal(text: str) -> Appraisal:

@@ -33,7 +33,7 @@
 
 | 阶段 | 目标 | 时间 | 退出条件 |
 |---|---|---|---|
-| **P0 本地实验** | 核心引擎、CLI、面板、测试、实验 | 已完成 | 228 项测试通过；6 个实验可复现 |
+| **P0 本地实验** | 核心引擎、CLI、面板、测试、实验 | 已完成 | 236 项测试通过；6 个实验可复现 |
 | **P1 科学验证** | 参数恢复、敏感性、消融、真实日志 | 4–8 周 | 关键参数可识别；消融结果公开 |
 | **P2 开源发布** | 仓库、CI、文档、示例、v0.1.0 | 2–4 周 | 外部用户能在 10 分钟内跑通 |
 | **P3 集成** | LLM/Agent 适配、SQLite、真实嵌入 | 6–10 周 | 一个真实 Agent 连续运行 7 天 |
@@ -52,7 +52,7 @@
 - [x] JSON 持久化、原子写入、状态快照
 - [x] CLI：`init / demo / perceive / recall / tick / consolidate / snapshot / serve`
 - [x] 零依赖 HTTP API + 可视化面板
-- [x] 228 项测试
+- [x] 236 项测试
 - [x] 5 个可复现实验 + 图表 + 指标 JSON
 
 ### 已知缺口
@@ -109,6 +109,16 @@
 - [x] 测试总数 228
 
 **仍未关闭：** LLM 评价与规则评价的人工盲评 A/B、低置信混合门控、重复轮一致性、模型注入对抗测试。详见 [LLM_APPRAISAL.md](LLM_APPRAISAL.md) 与 [GAPS.md](GAPS.md) 第 9 节。
+
+### 0.3.3 评价落点修复（2026-11-13）
+
+- [x] `LLMAppraiser` 解包 `appraisal` / `result` / `data` 外层，外层 `note` 合并
+- [x] `appraise()` 的 surprise 分支限制为 `abs(d) < 0.22`，强负向不再被 novelty 盖住
+- [x] 新增 `/api/appraise`：返回维度、标签与阈值轨迹，不写状态
+- [x] 覆盖 `d=-0.3 / agency=other / control=0.2` 与 `d=-0.6 / circumstance` 的端到端回归
+- [x] 测试总数 236
+
+**仍未关闭：** DeepSeek/本地模型真实载荷的重复轮一致性、模型输出字段缺失的告警、人工盲评。详见 [LLM_APPRAISAL.md](LLM_APPRAISAL.md) 5.1 与 [GAPS.md](GAPS.md) 第 10 节。
 
 ---
 

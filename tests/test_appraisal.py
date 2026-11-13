@@ -1,6 +1,6 @@
 import pytest
 
-from thymos.appraisal import appraise, estimate_appraisal
+from thymos.appraisal import appraise, estimate_appraisal, explain_appraisal
 from thymos.types import Appraisal
 
 
@@ -20,6 +20,61 @@ def test_other_agency_high_control_negative_is_anger():
         Appraisal(desirability=-0.7, certainty=0.8, control=0.7, agency="other", stakes=0.7)
     )
     assert e.label == "anger"
+
+
+@pytest.mark.parametrize(
+    "appraisal",
+    [
+        Appraisal(
+            desirability=-0.30,
+            agency="other",
+            control=0.20,
+            certainty=0.60,
+            stakes=0.50,
+            note="llm:转述他人辱骂",
+        ),
+        Appraisal(
+            desirability=-0.60,
+            agency="circumstance",
+            control=0.30,
+            certainty=0.60,
+            stakes=0.50,
+            note="llm:用户表达悲伤",
+        ),
+    ],
+)
+def test_llm_supplied_negative_dimensions_do_not_collapse_to_neutral(appraisal):
+    e = appraise(appraisal)
+    assert e.label in {"sadness", "anger", "anxiety", "fear", "disgust"}
+    assert e.label != "neutral"
+
+
+def test_high_novelty_does_not_mask_a_strong_negative_event():
+    e = appraise(
+        Appraisal(
+            desirability=-0.30,
+            novelty=0.95,
+            agency="other",
+            control=0.20,
+            stakes=0.50,
+        )
+    )
+    assert e.label in {"sadness", "anger", "anxiety", "fear", "disgust"}
+
+
+def test_explain_appraisal_reports_dimensions_and_threshold_decision():
+    result = explain_appraisal(
+        Appraisal(
+            desirability=-0.30,
+            agency="other",
+            control=0.20,
+            stakes=0.50,
+        )
+    )
+    assert result["appraisal"]["desirability"] == pytest.approx(-0.30)
+    assert result["emotion"]["label"] != "neutral"
+    assert result["decision"]["strong_negative"] is True
+    assert result["decision"]["neutral_reason"] == ""
 
 
 def test_uncertain_uncontrollable_negative_is_anxiety_or_fear():

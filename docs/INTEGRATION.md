@@ -124,6 +124,7 @@ python -m thymos --offline serve --host 127.0.0.1 --port 8787
 | GET | `/api/memories?limit=50` | 最近记忆 |
 | GET | `/api/export` | 导出完整状态（JSON） |
 | GET | `/api/health` | 健康检查 |
+| POST | `/api/appraise` | 调试：维度 → 情绪标签与阈值轨迹（不写状态） |
 | POST | `/api/perceive` | 编码事件 |
 | POST | `/api/recall` | 按线索回忆 |
 | POST | `/api/tick` | 推进时间 |
@@ -142,6 +143,13 @@ curl -s http://127.0.0.1:8787/api/perceive \
 curl -s http://127.0.0.1:8787/api/recall \
   -H "Content-Type: application/json" \
   -d '{"query":"评审","top_k":3}'
+```
+
+```bash
+# 只调试评价映射，不写记忆/心境
+curl -s http://127.0.0.1:8787/api/appraise \
+  -H "Content-Type: application/json" \
+  -d '{"appraisal":{"desirability":-0.3,"agency":"other","control":0.2,"stakes":0.5}}'
 ```
 
 PowerShell：

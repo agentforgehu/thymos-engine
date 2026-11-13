@@ -11,13 +11,15 @@
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.3.2%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.3.3%20alpha-f59e0b)
 
 </div>
 
-> **状态：v0.3.2 本地实验版，控制平面 MVP。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学内核算上的一层控制平面：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，再决定“这次该用哪种记忆、情绪能不能参与、预算先给谁、为什么这样选”。0.3.2 增加可选的 `LLMAppraiser`，并把 `observe()` 改成“一次评价、重要性与 perceive 共用”；规则仍是默认与失败兜底。API 仍可能变化。
+> **状态：v0.3.3 本地实验版，控制平面 MVP。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学内核算上的一层控制平面：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，再决定“这次该用哪种记忆、情绪能不能参与、预算先给谁、为什么这样选”。0.3.3 修复 LLM 结构化评价的嵌套载荷与标签落点，新增 `/api/appraise` 调试端点；0.3.2 的 `LLMAppraiser` 与一次评价复用保持不变。规则仍是默认与失败兜底。API 仍可能变化。
 
 > **0.3.1 审计结论：** `你怎么这么笨，闭嘴` 从 `neutral` 修成 `anger`；`特别开心/别人夸我` 不再被「别」反转；`闭嘴/你真好/项目黄了` 这类短消息不再因为长度 <12 被 `observe` 丢弃。30 轮本地 35B 定向长测 30/30 探针通过，单条辱骂心境约 -0.054，单条感谢约 +0.059，日常 30 轮心境范围约 0.232。证据、边界和未关闭项见 [docs/LANGUAGE_MOOD_AUDIT.md](docs/LANGUAGE_MOOD_AUDIT.md)。
+
+> **0.3.3 修复：** 当 `desirability=-0.3` 却显示 `neutral`，先看 `/api/appraise` 返回的 `appraisal.desirability`：若为 0，说明适配器没解包模型 JSON；0.3.3 已兼容 `appraisal/result/data` 外层，并加了维度到标签的回归测试。
 
 > **0.3.2 分工：** 如果宿主已经有 LLM，不要再让 Thymos 用词典当唯一裁判。LLM 填 `Appraisal`，Thymos 负责情绪/心境/记忆/审计；不传则规则兜底。重复的“判断两次”已经收掉。见 [LLM 评价](docs/LLM_APPRAISAL.md)。
 
@@ -263,7 +265,7 @@ python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 | Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
 | Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
 | ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
-| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，228 项测试 + 可复现实验** |
+| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，236 项测试 + 可复现实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
 
@@ -345,7 +347,7 @@ python -m thymos demo
 | 健康事件 | `昨天去看了牙` | `health_event=看牙` |
 | 作息 / 咖啡 | `晚上十一点前睡` / `咖啡不加糖` | `sleep=十一点前` / `coffee_sugar=不加糖` |
 
-没有命中的句子不会凭空生成事实；需要更高覆盖率时，用 `LLMFactExtractor`（见 [docs/INTEGRATION.md](docs/INTEGRATION.md)）把模型抽取结果写入同一个 `FactStore`。句式覆盖与边界会随测试扩充，当前 228 项测试中有专门的中文事实回归。
+没有命中的句子不会凭空生成事实；需要更高覆盖率时，用 `LLMFactExtractor`（见 [docs/INTEGRATION.md](docs/INTEGRATION.md)）把模型抽取结果写入同一个 `FactStore`。句式覆盖与边界会随测试扩充，当前 236 项测试中有专门的中文事实回归。
 
 ---
 
@@ -404,7 +406,7 @@ src/thymos/
   dashboard.html  零依赖可视化面板
   cli.py          命令行
 experiments/      实验 + 检索基线 + 回放 harness + held-out 评测
-tests/             228 项测试
+tests/             236 项测试
 docs/             教程、研究、设计、实验、命名、路线图
 ```
 
@@ -420,7 +422,8 @@ docs/             教程、研究、设计、实验、命名、路线图
 
 ## 路线图
 
-- **v0.3.2（当前）** 评价分层版：`LLMAppraiser`、一次评价复用、规则兜底；228 项测试。控制平面 MVP 的意图路由、情绪门控、四算子、预算与审计保持不变。
+- **v0.3.3（当前）** 评价落点修复版：嵌套 JSON 解包、强负向不被 novelty 覆盖、`/api/appraise` 调试端点；236 项测试。
+- **v0.3.2** 评价分层版：`LLMAppraiser`、一次评价复用、规则兜底；228 项测试。
 - **v0.3.1** 语言/心境审计版：否定边界、口语攻击/感谢/损失线索、短消息重要性、10h/0.40 心境参数；221 项测试。
 - **v0.3.x** 外部 benchmark 强基线、Mem0/Graphiti 参考适配器、多租户 SQLite、静态加密/保留期、审计 UI。
 - **v0.4** 参数敏感性分析、个体化校准、更多环境变量（空气质量、噪声、社交密度）。

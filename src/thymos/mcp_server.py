@@ -116,7 +116,7 @@ class MCPServer:
                 {
                     "protocolVersion": PROTOCOL_VERSION,
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "thymos-memory", "version": "0.3.2"},
+                    "serverInfo": {"name": "thymos-memory", "version": "0.3.3"},
                 },
             )
         if method in ("notifications/initialized", "initialized"):

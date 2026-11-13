@@ -69,6 +69,25 @@ def _number(data: dict[str, Any], key: str, default: float, low: float, high: fl
         return default
 
 
+def _unwrap_payload(data: dict[str, Any]) -> dict[str, Any]:
+    """Accept flat or common nested JSON shapes from chat models.
+
+    Some providers wrap JSON mode output as ``{"appraisal": {...}}`` or
+    ``{"result": {...}}``.  Without this unwrap, every dimension silently
+    falls back to its default and the label becomes neutral even though the
+    model did return the right numbers.
+    """
+    outer_note = str(data.get("note", "")).strip()
+    for key in ("appraisal", "result", "data"):
+        nested = data.get(key)
+        if isinstance(nested, dict):
+            payload = dict(nested)
+            if outer_note and not str(payload.get("note", "")).strip():
+                payload["note"] = outer_note
+            return payload
+    return data
+
+
 class LLMAppraiser:
     """Turn a chat model into an :class:`Appraisal` callable.
 
@@ -94,6 +113,10 @@ class LLMAppraiser:
         self.chat = chat
         self.fallback = fallback
         self.max_note_chars = max(1, int(max_note_chars))
+        # Debug breadcrumbs for a single-threaded host.  Do not use one
+        # instance concurrently and expect these to describe the right turn.
+        self.last_raw: str | None = None
+        self.last_error: str | None = None
 
     def __call__(self, text: str) -> Appraisal:
         return self.appraise(text)
@@ -109,12 +132,16 @@ class LLMAppraiser:
         ]
         try:
             raw = self.chat(messages)
+            self.last_raw = raw if isinstance(raw, str) else repr(raw)
+            self.last_error = None
             data = _parse_json_object(raw)
         except Exception as exc:  # noqa: BLE001 - fallback is the contract
+            self.last_error = f"{type(exc).__name__}: {exc}"
             if self.fallback:
                 return estimate_appraisal(text)
             return Appraisal(note=f"llm-error:{type(exc).__name__}")
 
+        data = _unwrap_payload(data)
         agency = str(data.get("agency", "circumstance")).strip().lower()
         if agency not in _ALLOWED_AGENCY:
             agency = "circumstance"

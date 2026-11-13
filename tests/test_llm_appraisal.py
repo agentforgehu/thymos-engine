@@ -56,6 +56,39 @@ def test_llm_appraiser_clamps_and_normalizes_untrusted_fields():
     assert len(a.note) <= 12 + len("llm:")
 
 
+def test_llm_appraiser_unwraps_nested_appraisal_payload():
+    payload = {
+        "appraisal": {
+            "desirability": -0.3,
+            "agency": "other",
+            "control": 0.2,
+            "stakes": 0.5,
+        },
+        "note": "外层证据",
+    }
+    a = LLMAppraiser(_chat_returning(payload))("你怎么这么笨，闭嘴")
+    assert a.desirability == pytest.approx(-0.3)
+    assert a.agency == "other"
+    assert a.control == pytest.approx(0.2)
+    assert a.note == "llm:外层证据"
+    assert appraise(a).label != "neutral"
+
+
+def test_llm_appraiser_exposes_last_raw_and_error_for_debugging():
+    appraiser = LLMAppraiser(_chat_returning({"desirability": -0.3, "agency": "other"}))
+    assert appraiser.last_raw is None
+    appraiser("测试")
+    assert appraiser.last_raw is not None
+    assert "desirability" in appraiser.last_raw
+    assert appraiser.last_error is None
+
+    broken = LLMAppraiser(lambda messages: "not json")
+    broken("测试")
+    assert broken.last_raw == "not json"
+    assert broken.last_error is not None
+    assert "ValueError" in broken.last_error
+
+
 def test_llm_appraiser_falls_back_on_invalid_json():
     a = LLMAppraiser(lambda messages: "not json", fallback=True)("项目黄了")
     assert a.desirability < -0.20
@@ -96,6 +129,36 @@ def test_agent_memory_uses_one_appraiser_call_for_importance_and_affect(tmp_path
     assert item is not None
     assert calls == ["你这次真的帮了我大忙"]
     assert after > before
+
+
+def test_agent_memory_negative_llm_dimensions_land_in_a_negative_label(tmp_path):
+    def appraiser(text):
+        return Appraisal(
+            goal_relevance=0.6,
+            desirability=-0.30,
+            certainty=0.60,
+            control=0.20,
+            agency="other",
+            stakes=0.50,
+            note="llm:转述他人辱骂",
+        )
+
+    memory = AgentMemory(
+        str(tmp_path / "agent.json"),
+        profile=PROFILE,
+        config=ThymosConfig(offline=True, seed=3),
+        now=START,
+        appraiser=appraiser,
+    )
+    item = memory.observe("你怎么这么笨，闭嘴")
+    assert item is not None
+    assert memory.snapshot()["affect"]["emotion"]["label"] in {
+        "sadness",
+        "anger",
+        "anxiety",
+        "fear",
+        "disgust",
+    }
 
 
 def test_small_talk_does_not_call_the_appraiser(tmp_path):

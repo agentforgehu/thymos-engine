@@ -2,6 +2,26 @@
 
 本项目遵循语义化版本（SemVer）。研究性 API 在 1.0 前可能变化，破坏性变更会写入此处。
 
+## [0.3.3] — 2026-11-13
+
+评价落点修复版：解决“LLM 给了 `desirability=-0.3`，最终标签仍是 neutral”的可复现路径，并增加只读调试端点。
+
+### Added
+
+- `explain_appraisal()`：返回实际 `Appraisal`、`Emotion` 和阈值决策（`strong_negative`、`novelty_override`、`neutral_reason` 等）。
+- HTTP `POST /api/appraise`：维度/文本进，标签与决策出；不写记忆、不推时间。
+- `LLMAppraiser.last_raw` / `last_error`：单线程调试时查看模型原始输出与解析错误。
+
+### Fixed
+
+- `LLMAppraiser` 现在自动解包 `appraisal` / `result` / `data` 三种常见 JSON 外层，并合并外层 `note`；此前嵌套载荷会让所有维度静默默认为中性。
+- `appraise()` 的 surprise 分支从 `abs(d) < 0.35` 收紧到 `< 0.22`，高 novelty 不再盖住明确负向事件。
+- 增加 `d=-0.30 / agency=other / control=0.20` 与 `d=-0.60 / agency=circumstance` 的映射及 `AgentMemory` 端到端回归。
+
+### Changed
+
+- 版本号 0.3.2 → 0.3.3；测试总数 228 → 236。
+
 ## [0.3.2] — 2026-11-13
 
 评价分层版：有 LLM 的宿主可以让模型填 `Appraisal`，Thymos 只负责状态、记忆和审计；规则保留为默认与失败兜底。`observe()` 不再把同一句话判断两次。

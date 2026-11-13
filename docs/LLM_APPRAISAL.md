@@ -1,6 +1,6 @@
 # 让 LLM 判断，Thymos 记录：评价层的边界
 
-> 版本：0.3.2 工作区（2026-11-13）
+> 版本：0.3.3 工作区（2026-11-13）
 >
 > 问题：既然已经有 LLM，为什么还要维护一套情绪词典？又判断又记录，是不是重复？
 >
@@ -181,6 +181,60 @@ python experiments/appraisal_llm_probe.py \
 - 讽刺仍被判成 `anxiety`。模型 note 写了“可能反语”，但 `desirability=-0.5` 已经足以让标签偏离 neutral。**这正是不能默认打开 LLM 评价的原因**：歧义输入上它也会过度自信。
 - 中性事实两边都稳定；说明结构化 schema 没有把事实句强行情绪化。
 - 延迟是真实成本；本地 35B 上额外一次评价约 3 秒，不适合每轮无脑调用。
+
+### 5.1 0.3.3：为什么 `d=-0.3` 还会显示 neutral
+
+先用裸 `Appraisal` 验证映射：
+
+```python
+from thymos.appraisal import appraise
+from thymos.types import Appraisal
+
+e = appraise(Appraisal(desirability=-0.3, agency="other", control=0.2))
+print(e.label)  # sadness
+```
+
+在当前代码里，`d=-0.30`、`agency=other`、`control=0.20` 会进入负向分支并得到
+`sadness`，**不是 neutral**。所以“模型说 d=-0.3”但标签 neutral，最常见的原因不是
+阈值，而是 `LLMAppraiser` 没拿到这个字段，静默用了默认 `desirability=0.0`。
+
+最典型的失败形态是 JSON 外层嵌套：
+
+```json
+{"appraisal": {"desirability": -0.3, "agency": "other", "control": 0.2}}
+```
+
+旧版只读顶层字段，于是 `desirability` 缺省为 0，标签自然是 neutral。0.3.3 现在会
+自动解包 `appraisal` / `result` / `data` 三种常见外层，并把外层 `note` 合并进内层。
+同时把 `novelty >= 0.72` 的 surprise 分支限制在 `abs(d) < 0.22`，避免高新颖性把
+一个明确负向事件盖成 surprise。
+
+如果仍然看到 neutral，先打调试端点，不要猜：
+
+```bash
+curl -s http://127.0.0.1:8787/api/appraise \
+  -H "Content-Type: application/json" \
+  -d '{"appraisal":{"desirability":-0.3,"agency":"other","control":0.2,"stakes":0.5}}'
+```
+
+返回里同时有 `appraisal`（实际被 clamp 的维度）、`emotion`（最终标签与 PAD）和
+`decision`（`strong_negative` / `novelty_override` / `neutral_reason` 等）。
+如果 `appraisal.desirability` 是 0，问题在适配器或模型 JSON；如果它是 -0.3 而
+`emotion.label` 还是 neutral，问题在映射，可以直接拿这个 payload 开 issue。
+
+这个端点只计算、不写记忆、不推时间，适合定位“维度对但标签不对”和“维度没进来”两类
+不同故障。
+
+在 Python 里也可以直接查看适配器最近一次原始输出：
+
+```python
+appraiser = LLMAppraiser(chat)
+appraiser("你怎么这么笨，闭嘴")
+print(appraiser.last_raw)    # 模型原始文本/JSON
+print(appraiser.last_error)  # 解析或调用错误；成功时为 None
+```
+
+`last_raw`/`last_error` 是单线程调试字段，不要在多线程宿主里依赖它做请求级归因。
 
 ---
 
