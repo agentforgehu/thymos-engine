@@ -157,14 +157,14 @@ dL/dt = 0.020*max(0, stress - 0.55) - 0.0010*L
 | 参数 | 默认 | 单位 | 来源 |
 |---|---:|---|---|
 | `τ_e` 情绪时间常数 | 1.1 | 小时 | E |
-| `τ_m` 心境时间常数 | 18 | 小时 | L/E（心境半衰期 6–48h） |
+| `τ_m` 心境时间常数 | 10 | 小时 | L/E（聊天尺度工程折中；见 LANGUAGE_MOOD_AUDIT） |
 | `κ` 情绪→心境耦合 | 0.45 | — | E |
-| `mood_reactivity` | 0.18 | — | E |
+| `mood_reactivity` | 0.40 | — | E（单条事件可见性；敏感性扫描） |
 | `τ_s` 压力时间常数 | 5 | 小时 | E |
 | `L` 适应负荷时间常数 | 240 | 小时 | E（慢性） |
 | `mood_setpoint` | +0.06 | — | P |
 
-> 心境不是“情绪的平均”，而是带稳态回拉与外部偏置的慢积分。`κ` 让当下情绪能影响心境目标，但不会立刻把心境拉到情绪值。
+> 心境不是“情绪的平均”，而是带稳态回拉与外部偏置的慢积分。`κ` 让当下情绪能影响心境目标，但不会立刻把心境拉到情绪值。0.3.1 把 `τ_m` 从 18h 调到 10h、`mood_reactivity` 从 0.18 调到 0.40，原因是旧参数下单条辱骂/感谢在聊天回合里几乎不可见；这是工程折中，不是生理常数。详见 [LANGUAGE_MOOD_AUDIT.md](LANGUAGE_MOOD_AUDIT.md)。
 
 ---
 
@@ -574,8 +574,8 @@ H(t+dt) = target + (H(t) - target) * exp(-dt/τ)
 | `retrievability_weight` | 0.55 | — | E | R 与 p 的排序权重 |
 | `reconsolidation_window_min` | 10 | 分钟 | P | 再巩固窗口占位 |
 | `mood_setpoint` | +0.06 | — | P | 轻微正向基线 |
-| `mood_tau_hours` | 18 | 小时 | L/E | 心境慢变量 |
-| `mood_reactivity` | 0.18 | — | E | 事件对心境的即时冲量 |
+| `mood_tau_hours` | 10 | 小时 | L/E | 心境慢变量；聊天尺度折中 |
+| `mood_reactivity` | 0.40 | — | E | 事件对心境的即时冲量 |
 | `emotion_tau_hours` | 1.1 | 小时 | E | 快情绪回零 |
 | `stress_tau_hours` | 5 | 小时 | E | 压力恢复 |
 | `allostatic_tau_hours` | 240 | 小时 | E | 慢性负荷 |

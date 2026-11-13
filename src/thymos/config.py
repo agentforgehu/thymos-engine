@@ -72,8 +72,12 @@ class ThymosConfig:
 
     # --- affect ----------------------------------------------------------
     mood_setpoint: float = 0.06
-    mood_tau_hours: float = 18.0
-    mood_reactivity: float = 0.18
+    # 10 h is still much slower than the ~1 h emotion impulse, but fast
+    # enough that a day of conversation leaves a visible trace.  These are
+    # engineering parameters for chat-turn density, not physiological
+    # constants; see docs/LANGUAGE_MOOD_AUDIT.md for the sensitivity sweep.
+    mood_tau_hours: float = 10.0
+    mood_reactivity: float = 0.40
     emotion_tau_hours: float = 1.1
     stress_tau_hours: float = 5.0
     allostatic_tau_hours: float = 240.0

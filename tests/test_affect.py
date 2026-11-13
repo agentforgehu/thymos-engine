@@ -91,3 +91,58 @@ def test_state_clamps_stay_in_range():
     assert -1.0 <= affect.state.valence <= 1.0
     assert 0.0 <= affect.state.arousal <= 1.0
     assert 0.0 <= affect.state.stress <= 1.0
+
+
+def test_single_colloquial_insult_moves_mood_materially():
+    affect, endo = make_affect()
+    before = affect.state.mood_valence
+    emotion = appraise(estimate_appraisal("你怎么这么笨，闭嘴"))
+    affect.apply_emotion(emotion, endo)
+    delta = affect.state.mood_valence - before
+    assert emotion.label in {"anger", "disgust"}
+    assert delta <= -0.03
+
+
+def test_single_colloquial_praise_moves_mood_materially():
+    affect, endo = make_affect()
+    before = affect.state.mood_valence
+    emotion = appraise(estimate_appraisal("谢谢你，辛苦了"))
+    affect.apply_emotion(emotion, endo)
+    assert emotion.label in {"joy", "trust"}
+    assert affect.state.mood_valence - before >= 0.03
+
+
+def test_mild_tired_message_moves_mood_by_more_than_one_percent():
+    affect, endo = make_affect()
+    before = affect.state.mood_valence
+    affect.apply_emotion(appraise(estimate_appraisal("今天有点累")), endo)
+    assert affect.state.mood_valence - before <= -0.015
+
+
+def test_daily_chat_has_visible_mood_range():
+    affect, endo = make_affect()
+    texts = [
+        "今天星期三", "你好", "你怎么这么笨，闭嘴", "谢谢", "我在看垃圾分类",
+        "项目黄了", "你真好", "今天有点累", "我喜欢你", "呵呵",
+        "我被裁了", "差不多完成了", "你做得不对", "太厉害了", "今天特别开心",
+        "我们分手了", "谢谢你，辛苦了", "我在滚面团", "这个方案不行", "靠谱",
+        "家人生病了", "牛啊", "别烦我", "蔬菜很新鲜", "给力",
+        "就这？", "你真是个废物", "别人夸我今天的报告", "今天有点累", "晚安",
+    ]
+    values = []
+    stresses = []
+    for text in texts:
+        affect.apply_emotion(appraise(estimate_appraisal(text)), endo)
+        affect.step(0.5, endo)
+        values.append(affect.state.mood_valence)
+        stresses.append(affect.state.stress)
+    assert max(values) - min(values) >= 0.08
+    assert max(stresses) < 0.35
+    assert affect.state.fatigue < 0.90
+
+
+def test_mood_returns_toward_setpoint_after_one_day_without_events():
+    affect, endo = make_affect()
+    affect.apply_emotion(appraise(estimate_appraisal("你怎么这么笨，闭嘴")), endo)
+    affect.step(24.0, endo)
+    assert abs(affect.state.mood_valence - ThymosConfig().mood_setpoint) < 0.02

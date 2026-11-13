@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .appraisal import estimate_appraisal
 from .config import Profile, ThymosConfig
 from .embedding import Embedder
 from .engine import Thymos
@@ -50,6 +51,15 @@ def estimate_importance(text: str) -> float:
     text = (text or "").strip()
     if not text:
         return 0.0
+    # A short but strongly valenced message ("闭嘴", "你真好", "项目黄了")
+    # must not fall through the length heuristic.  Otherwise the most
+    # affectively intense turns are exactly the ones that never reach
+    # `perceive`, and mood appears not to react at all.
+    if _SMALLTALK.match(text):
+        return 0.20
+    appraisal = estimate_appraisal(text)
+    if abs(appraisal.desirability) >= 0.30:
+        return 0.85
     # A reminder/commitment is worth keeping even when phrased as a question.
     if _REMINDER.search(text):
         return 0.90
@@ -65,8 +75,6 @@ def estimate_importance(text: str) -> float:
         return 0.80
     if _FACT.search(text):
         return 0.70
-    if _SMALLTALK.match(text):
-        return 0.20
     if len(text) < 12:
         return 0.30
     return 0.45

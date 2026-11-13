@@ -11,11 +11,11 @@ A local-first, inspectable memory control plane that couples forgetting curves, 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.3.0%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.3.1%20alpha-f59e0b)
 
 </div>
 
-> **Status: v0.3.0, local research sandbox with a control-plane MVP.** This is not a clinically validated model of emotion, and it is not conscious. It is a set of inspectable dynamical hypotheses: what if memory, affect, hormones, sleep and weather shared one clock? 0.3.0 adds query-intent routing, affect gating, four memory operators, hard context budgets and an audit trace. It is still not production-grade memory.
+> **Status: v0.3.1, local research sandbox with a control-plane MVP.** This is not a clinically validated model of emotion, and it is not conscious. It is a set of inspectable dynamical hypotheses: what if memory, affect, hormones, sleep and weather shared one clock? 0.3.1 fixes Chinese colloquial affect, negation boundaries, short-message importance and chat-scale mood response, while keeping query-intent routing, affect gating, four memory operators, hard context budgets and an audit trace. It is still not production-grade memory.
 
 ---
 
@@ -151,7 +151,7 @@ These validate **internal consistency**, not human psychology. See [docs/EXPERIM
 | Letta / MemGPT | hierarchical context | context eviction | — | — | — | partial |
 | Generative Agents | memory stream | recency decay | simple | — | — | yes |
 | ALMA / WASABI | — | — | appraisal + PAD | — | — | partial |
-| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **134 tests + 5 experiments** |
+| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **221 tests + reproducible experiments** |
 
 Thymos does not compete on memory-recall benchmarks. It competes on **dynamical coherence, inspectability and reproducibility**.
 

@@ -86,3 +86,14 @@ def test_fact_store_round_trip():
     restored = FactStore.from_list(store.to_list())
     assert restored.current("user", "name", 1000).value == "林墨"
     assert restored.current("user", "city", 1000).value == "杭州"
+
+
+def test_negated_location_and_job_are_not_extracted():
+    assert extract_facts("我不住在上海") == []
+    assert extract_facts("我不在上海工作") == []
+    assert extract_facts("我不做软件") == []
+
+
+def test_negated_allergy_is_not_extracted_but_dislike_is():
+    assert extract_facts("我对花生不过敏") == []
+    assert dict(extract_facts("我不吃香菜"))["food_dislike"] == "香菜"

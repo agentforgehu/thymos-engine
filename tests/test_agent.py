@@ -55,6 +55,21 @@ def test_importance_rules_are_transparent():
     assert estimate_importance("嗯") <= 0.2
 
 
+@pytest.mark.parametrize(
+    "text", ["闭嘴", "你真是个废物", "你真好", "太厉害了", "项目黄了"]
+)
+def test_short_strong_affect_is_not_dropped_by_length(text):
+    assert estimate_importance(text) >= 0.7
+
+
+def test_short_insult_observed_by_agent_memory_changes_mood(memory):
+    before = memory.snapshot()["affect"]["mood"]["valence"]
+    item = memory.observe("闭嘴")
+    after = memory.snapshot()["affect"]["mood"]["valence"]
+    assert item is not None
+    assert after < before
+
+
 def test_questions_are_not_stored_as_preferences(memory):
     assert estimate_importance("我不吃什么？") <= 0.3
     assert estimate_importance("我面试是哪天？") <= 0.3

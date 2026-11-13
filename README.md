@@ -6,16 +6,18 @@
 
 一个本地优先、可解释、可复现的「情绪 × 记忆 × 内分泌 × 环境」耦合引擎。
 
-[English](README.en.md) · [产品定义](docs/PRODUCT.md) · [教程](docs/TUTORIAL.md) · [MCP 接入](docs/MCP.md) · [P0–P2 升级](docs/UPGRADE_P0_P2.md) · [目标校准与同类项目](docs/STRATEGY.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [50 轮实测](docs/LOCAL_LLM_50_TEST.md) · [混合门控实测](docs/LOCAL_LLM_MIXED_GATE_TEST.md) · [三项修复复测](docs/LOCAL_LLM_FIXES.md) · [四项修复复测](docs/FACT_EMOTION_FIXES.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [Held-out 评测](docs/results/heldout_eval.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
+[English](README.en.md) · [产品定义](docs/PRODUCT.md) · [教程](docs/TUTORIAL.md) · [MCP 接入](docs/MCP.md) · [P0–P2 升级](docs/UPGRADE_P0_P2.md) · [目标校准与同类项目](docs/STRATEGY.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [50 轮实测](docs/LOCAL_LLM_50_TEST.md) · [混合门控实测](docs/LOCAL_LLM_MIXED_GATE_TEST.md) · [三项修复复测](docs/LOCAL_LLM_FIXES.md) · [四项修复复测](docs/FACT_EMOTION_FIXES.md) · [语言与心境审计](docs/LANGUAGE_MOOD_AUDIT.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [Held-out 评测](docs/results/heldout_eval.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.3.0%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.3.1%20alpha-f59e0b)
 
 </div>
 
-> **状态：v0.3.0 本地实验版，控制平面 MVP。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学内核算上的一层控制平面：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，再决定“这次该用哪种记忆、情绪能不能参与、预算先给谁、为什么这样选”。0.3.0 的重点是意图路由、情绪门控、四类记忆算子和审计轨迹；API 仍可能变化。
+> **状态：v0.3.1 本地实验版，控制平面 MVP。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学内核算上的一层控制平面：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，再决定“这次该用哪种记忆、情绪能不能参与、预算先给谁、为什么这样选”。0.3.1 的重点是修复中文口语影响识别、否定边界、短消息被重要性门槛丢弃，以及校准聊天尺度的心境响应；API 仍可能变化。
+
+> **0.3.1 审计结论：** `你怎么这么笨，闭嘴` 从 `neutral` 修成 `anger`；`特别开心/别人夸我` 不再被「别」反转；`闭嘴/你真好/项目黄了` 这类短消息不再因为长度 <12 被 `observe` 丢弃。30 轮本地 35B 定向长测 30/30 探针通过，单条辱骂心境约 -0.054，单条感谢约 +0.059，日常 30 轮心境范围约 0.232。证据、边界和未关闭项见 [docs/LANGUAGE_MOOD_AUDIT.md](docs/LANGUAGE_MOOD_AUDIT.md)。
 
 > **定位：从“记忆引擎”到“记忆控制平面”。** 存储、索引、检索这些数据平面已经商品化；Thymos 不在这里硬碰，而是做数据平面之上的表示路由、情绪路由、预算路由与审计。0.3.0 的保留/改写/放弃/冻结清单见 [PRODUCT.md](docs/PRODUCT.md)。
 
@@ -24,7 +26,7 @@
 ## 三句话
 
 1. **记忆不是存不存，是有深浅。** 不碰的事会自然淡掉，常提的越记越牢；系统自己筛，不靠手工删。
-2. **心情有层次，不是一个分数。** 情绪一两小时就退，心境是好几天的慢变量，底下还有皮质醇、血清素在托着；所以它会“缓过来”，不是切一个标签。
+2. **心情有层次，不是一个分数。** 情绪一两小时就退，心境是数小时到一天的慢变量，底下还有皮质醇、血清素和更慢的适应负荷在托着；所以它会“缓过来”，不是切一个标签。
 3. **每次回忆都会改写那条记忆。** 同一件事今天想起来和三个月后想起来，情绪电荷不一样；回忆不是读取文件，是再巩固。
 
 短板也写在明面上：**中文召回一般，参数还没调过**。当前嵌入是哈希 n-gram，评价是词典启发式；它适合做原型、研究和可解释的基线，不是开箱即用的生产记忆层。
@@ -237,7 +239,7 @@ python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 | Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
 | Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
 | ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
-| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，134 项测试 + 5 个实验** |
+| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，221 项测试 + 可复现实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
 
@@ -319,7 +321,7 @@ python -m thymos demo
 | 健康事件 | `昨天去看了牙` | `health_event=看牙` |
 | 作息 / 咖啡 | `晚上十一点前睡` / `咖啡不加糖` | `sleep=十一点前` / `coffee_sugar=不加糖` |
 
-没有命中的句子不会凭空生成事实；需要更高覆盖率时，用 `LLMFactExtractor`（见 [docs/INTEGRATION.md](docs/INTEGRATION.md)）把模型抽取结果写入同一个 `FactStore`。句式覆盖与边界会随测试扩充，当前 134 项测试中有专门的中文事实回归。
+没有命中的句子不会凭空生成事实；需要更高覆盖率时，用 `LLMFactExtractor`（见 [docs/INTEGRATION.md](docs/INTEGRATION.md)）把模型抽取结果写入同一个 `FactStore`。句式覆盖与边界会随测试扩充，当前 221 项测试中有专门的中文事实回归。
 
 ---
 
@@ -376,8 +378,8 @@ src/thymos/
   api.py          标准库 HTTP API
   dashboard.html  零依赖可视化面板
   cli.py          命令行
-experiments/      五个实验 + 检索基线 + 回放 harness + held-out 评测
-tests/             134 项测试
+experiments/      实验 + 检索基线 + 回放 harness + held-out 评测
+tests/             221 项测试
 docs/             教程、研究、设计、实验、命名、路线图
 ```
 
@@ -393,7 +395,7 @@ docs/             教程、研究、设计、实验、命名、路线图
 
 ## 路线图
 
-- **v0.3.0（当前）** 控制平面 MVP：意图路由、情绪门控、事实/情景/图/摘要四算子、预算规划、审计轨迹、`MemoryBackend` 协议；134 项测试。
+- **v0.3.1（当前）** 语言/心境审计版：否定边界、口语攻击/感谢/损失线索、短消息重要性、10h/0.40 心境参数；221 项测试。控制平面 MVP 的意图路由、情绪门控、四算子、预算与审计保持不变。
 - **v0.3.x** 外部 benchmark 强基线、Mem0/Graphiti 参考适配器、多租户 SQLite、静态加密/保留期、审计 UI。
 - **v0.4** 参数敏感性分析、个体化校准、更多环境变量（空气质量、噪声、社交密度）。
 - **v1.0** 开放基准、社区治理、稳定 API、隐私与安全审计。

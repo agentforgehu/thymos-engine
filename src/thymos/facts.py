@@ -124,6 +124,7 @@ _QUERY_KEYWORDS = {
 }
 
 _HISTORY_QUERY = re.compile(r"以前|之前|原来|过去|历史|搬家前|旧")
+_NEGATED_PREFIX = re.compile(r"(?:不|没|没有|并非|不是|别)[^，。！？\s]{0,4}$")
 
 _MOVE_CUES = ("决定", "已经搬", "搬好了", "下周搬", "搬完")
 _FUTURE_DAY = 86400.0
@@ -234,6 +235,18 @@ def _valid_value(value: str) -> bool:
     return True
 
 
+def _negated_before(text: str, index: int) -> bool:
+    """Whether the statement immediately before `index` is negated.
+
+    This is a conservative guard for extracted facts.  Without it,
+    "我不住在上海" produces a current-city fact for Shanghai and
+    "我不在上海工作" produces a job/city fact.
+    """
+    prefix = text[max(0, index - 10):index]
+    prefix = re.split(r"[，。！？；,.!?;]", prefix)[-1]
+    return bool(_NEGATED_PREFIX.search(prefix))
+
+
 def extract_candidates(text: str, at: float) -> list[ExtractedFact]:
     """Extract high-value facts with optional effective times.
 
@@ -283,6 +296,16 @@ def extract_candidates(text: str, at: float) -> list[ExtractedFact]:
         if is_question and predicate in {"food_like", "food_dislike"}:
             continue
         for match in re.finditer(pattern, text):
+            if predicate in {"city", "job"} and _negated_before(text, match.start()):
+                continue
+            if predicate == "allergy" and any(
+                negator in match.group(1) for negator in ("不", "没", "无")
+            ):
+                continue
+            if predicate in {"sleep", "wake"} and match.group(1).startswith(
+                ("不", "没", "未")
+            ):
+                continue
             add(predicate, match.group(1))
 
     if not is_question:

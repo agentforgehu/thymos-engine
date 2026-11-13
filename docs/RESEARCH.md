@@ -175,11 +175,12 @@ M*    = setpoint + weather + hormone + circadian + κV
 ```
 
 - `τ_e` 默认 1.1 小时；
-- `τ_m` 默认 18 小时；
+- `τ_m` 默认 10 小时（0.3.1 从 18h 下调；这是聊天尺度的工程折中，不是生理常数）；
 - `κ` 让当下情绪以 45% 的权重进入心境目标；
-- 事件还会给心境一个即时的 18% 冲量，避免“心境永远慢半拍”的不真实感。
+- 事件还会给心境一个即时的 40% 冲量，避免“心境永远慢半拍”的不真实感；
+- 更慢的皮质醇/适应负荷层（30h/240h）承担“几天”的背景，不把全部慢变量压在单一 mood 上。
 
-这套结构不是从某个实验直接拟合的，而是把“快情绪/慢心境/稳态”三个定性事实写成最小动力学。
+这套结构不是从某个实验直接拟合的，而是把“快情绪/慢心境/稳态”三个定性事实写成最小动力学。Fan 等（2019）的分钟级在线情绪数据支持“情绪事件是小时级”的量级；Kuppens 等（2012）的经验采样支持评价与核心情感在日常生活中的动态耦合。但 `mood_reactivity=0.40` 与 `τ_m=10h` 是本项目的工程参数，不能引用成“心理学证明”。0.3.1 的敏感性扫描和本地 35B 复测见 [LANGUAGE_MOOD_AUDIT.md](LANGUAGE_MOOD_AUDIT.md)。
 
 ### 2.6 对设计的含义
 
@@ -454,3 +455,7 @@ Thymos 不宣称比这些系统“更强”。它补的是**动力学与可解�
 48. Rasmussen, P., Paliychuk, P., Beauvais, T., Ryan, J., & Chalef, D. (2025). Zep: A temporal knowledge graph architecture for agent memory. https://arxiv.org/abs/2501.13956
 49. Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., & Zhang, Y. (2025). A-MEM: Agentic memory for LLM agents. https://arxiv.org/abs/2502.12110
 50. Sumers, T. R., Yao, S., Narasimhan, K., & Griffiths, T. L. (2023). Cognitive architectures for language agents. https://arxiv.org/abs/2309.02427
+51. Fan, Y., et al. (2019). The minute-scale dynamics of online emotions reveal the effects of affect labeling. *Nature Human Behaviour*, 3, 92–100. https://doi.org/10.1038/s41562-018-0490-5
+52. Kuppens, P., Champagne, D., & Tuerlinckx, F. (2012). The dynamic interplay between appraisal and core affect in daily life. *Frontiers in Psychology*, 3:380. https://doi.org/10.3389/fpsyg.2012.00380
+53. Xiao, Y., Bouamor, H., & Zaghouani, W. (2024). Chinese Offensive Language Detection: Current Status and Future Directions. arXiv:2403.18314. https://arxiv.org/abs/2403.18314
+54. Lin, S.-K., & Hsieh, S.-K. (2016). Sarcasm Detection in Chinese Using a Crowdsourced Corpus. *ROCLING 2016*, 299–310. https://aclanthology.org/O16-1027/
