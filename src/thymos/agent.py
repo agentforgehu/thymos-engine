@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from typing import Any, Callable
 
-from .appraisal import estimate_appraisal
+from .appraisal import appraise, estimate_appraisal
 from .config import Profile, ThymosConfig
 from .embedding import Embedder
 from .engine import Thymos
@@ -27,6 +27,14 @@ from .facts import Fact
 from .mathx import clamp
 from .memory import MemoryStore
 from .types import Appraisal, MemoryItem, RetrievalResult
+from .write_path import (
+    find_merge_candidate,
+    merge_decision,
+    merge_memory,
+    normalize_key,
+    skip_decision,
+    store_decision,
+)
 
 # Rules are intentionally cheap and transparent.  Pass a structured
 # `appraisal` (from a host or `LLMAppraiser`) when you need nuance; this
@@ -288,6 +296,7 @@ class AgentMemory:
             and _SMALLTALK.match(text)
             and min_importance > 0.20
         ):
+            self.mind.last_write = skip_decision("smalltalk", 0.20).to_dict()
             return None
         if appraisal is None:
             appraisal = (
@@ -301,6 +310,7 @@ class AgentMemory:
             else estimate_importance(text, appraisal=appraisal)
         )
         if score < min_importance:
+            self.mind.last_write = skip_decision("below_min_importance", score).to_dict()
             return None
         # A question is a request for information, not a self-disclosure.
         # This guard matters when a host passes min_importance=0 to keep the
@@ -314,7 +324,54 @@ class AgentMemory:
             if reply:
                 content = f"用户说：{text}\n助手回应：{reply[:500]}"
 
-        return self.mind.perceive(
+        cfg = self.mind.config
+        if getattr(cfg, "write_admission_enabled", True):
+            candidate_embedding = self.mind.embedder(text)
+            candidate, similarity, reason = find_merge_candidate(
+                self.mind.store,
+                text,
+                candidate_embedding,
+                self.mind.now,
+                cfg,
+                tags=tags,
+            )
+            if candidate is not None and similarity is not None:
+                # The turn still moves affect and hormones; it just does not
+                # create a second trace.  Facts are attached to the surviving
+                # memory id so provenance is not lost.
+                self.mind.perceive(
+                    content,
+                    importance=score,
+                    tags=tags or ["对话"],
+                    source="agent",
+                    learn_facts=False,
+                    appraisal=appraisal,
+                    store_memory=False,
+                )
+                if learn_facts:
+                    self.mind.facts.observe(
+                        text,
+                        at=self.mind.now,
+                        source="agent",
+                        memory_id=candidate.id,
+                    )
+                merge_memory(
+                    candidate,
+                    content,
+                    candidate_embedding,
+                    now=self.mind.now,
+                    emotion=appraise(appraisal),
+                    importance=score,
+                    tags=tags,
+                    config=cfg,
+                )
+                self.mind.last_write = merge_decision(
+                    score, similarity, candidate.id, reason
+                ).to_dict()
+                self.mind._log("write_merge", {**self.mind.last_write, "content": text[:120]})
+                return candidate
+
+        item = self.mind.perceive(
             content,
             importance=score,
             tags=tags or ["对话"],
@@ -322,6 +379,10 @@ class AgentMemory:
             learn_facts=learn_facts,
             appraisal=appraisal,
         )
+        if item is not None:
+            item.canonical_key = normalize_key(text)
+        self.mind.last_write = store_decision(score, item.id if item else None).to_dict()
+        return item
 
     def observe_llm(
         self,

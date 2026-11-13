@@ -63,8 +63,28 @@ class ThymosConfig:
     context_weight: float = 0.55
     mood_congruence_weight: float = 0.35
     emotion_boost_weight: float = 0.22
+    association_spread_weight: float = 0.10
     activation_weight: float = 0.45
     retrievability_weight: float = 0.55
+    # Hybrid retrieval weights.  They sum to 1.0 and are deliberately
+    # separate from the embedding choice: a weak hash embedder can lean on
+    # lexical evidence, while a real Chinese embedder can take more semantic
+    # weight without changing the memory model.
+    retrieval_semantic_weight: float = 0.45
+    retrieval_lexical_weight: float = 0.22
+    retrieval_tag_weight: float = 0.18
+    retrieval_place_weight: float = 0.07
+    retrieval_weather_weight: float = 0.05
+    retrieval_time_weight: float = 0.03
+    # Write-path admission.  These are conservative defaults for a chat
+    # assistant: exact repeats are always deduplicated, semantic merges only
+    # happen inside a short window, and conflicting numbers/dates are kept
+    # as separate episodes rather than silently merged.
+    write_admission_enabled: bool = True
+    write_min_importance: float = 0.35
+    write_merge_similarity: float = 0.90
+    write_merge_window_hours: float = 72.0
+    write_semantic_merge_enabled: bool = True
     reconsolidation_window_min: float = 10.0
     # Facts are the highest-precision block, but they must not crowd out the
     # episodic evidence.  At 900 chars this leaves ~315 chars for facts.

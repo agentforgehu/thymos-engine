@@ -41,6 +41,25 @@ memory.end_session(7.5)
 `AgentMemory` 是薄门面，底层仍然是 `Thymos`；需要完全控制时用 `memory.mind`。
 只有回复里包含承诺/约定/重要自我披露时，才传 `assistant_text`；不要默认保存每条模型回复。
 
+### 1.0.1 写路径（0.3.5）
+
+`observe()` 默认会做写准入，而不是每轮新建条目：
+
+```python
+cfg = ThymosConfig(
+    write_admission_enabled=True,
+    write_min_importance=0.35,
+    write_merge_similarity=0.90,
+    write_merge_window_hours=72.0,
+    write_semantic_merge_enabled=True,
+)
+memory = AgentMemory(".thymos/agent.sqlite", config=cfg)
+memory.observe(user_text)
+print(memory.mind.last_write)  # store / merge / reinforce / skip + reason
+```
+
+精确重复跨会话去重；语义合并只在时间窗口、相似度和数字/日期不冲突时发生。合并/去重不会跳过情绪更新：这一轮仍然会改变心境、压力和内分泌。完整边界见 [WRITE_PATH.md](WRITE_PATH.md)。
+
 ### 1.0 计划与审计（0.3.0）
 
 `context()` 默认已走控制平面；如果要在日志里解释“为什么这样选”，用 `plan()`：

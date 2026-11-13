@@ -101,3 +101,31 @@ def test_mood_congruence_can_bias_selection():
         affect=AffectState(mood_valence=-0.6),
     )
     assert sad[0].memory.valence < 0
+
+
+def test_direct_lexical_match_beats_high_salience_distractor():
+    now = 1_000_000.0
+    target = make_memory(
+        "我对海鲜过敏，尤其是虾。",
+        created=now - 7200,
+        tags=["健康"],
+        valence=-0.3,
+        arousal=0.3,
+    )
+    distractor = make_memory(
+        "我喜欢喝冰美式，不加糖。",
+        created=now - 60,
+        tags=["饮食"],
+        valence=0.5,
+        arousal=0.5,
+    )
+    store = MemoryStore([target, distractor])
+    hits = retrieve(
+        store,
+        now=now,
+        config=ThymosConfig(),
+        query_embedding=embed("海鲜过敏"),
+        query_text="海鲜过敏",
+        query_tags=["健康"],
+    )
+    assert hits[0].memory is target

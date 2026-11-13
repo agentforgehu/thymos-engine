@@ -120,10 +120,12 @@ class OllamaEmbedder:
         model: str = "bge-m3",
         *,
         timeout: float = 60.0,
+        query_prefix: str = "",
     ) -> None:
         self.base_url = _normalize_base(base_url)
         self.model = model
         self.timeout = timeout
+        self.query_prefix = query_prefix
 
     @lru_cache(maxsize=1024)
     def __call__(self, text: str) -> list[float]:
@@ -136,6 +138,10 @@ class OllamaEmbedder:
             if exc.status != 404:
                 raise
             return self._embed_legacy(text)
+
+    def embed_query(self, text: str) -> list[float]:
+        """Embed a retrieval query; bge models may need a short instruction."""
+        return self(self.query_prefix + (text or ""))
 
     def _embed_new(self, text: str) -> list[float]:
         data = _post_json(
@@ -170,6 +176,7 @@ class OpenAIEmbedder:
         model: str = "text-embedding-3-small",
         *,
         timeout: float = 60.0,
+        query_prefix: str = "",
     ) -> None:
         if not (api_key or "").strip():
             raise EmbeddingError("OpenAIEmbedder 需要 api_key")
@@ -177,6 +184,7 @@ class OpenAIEmbedder:
         self.base_url = _normalize_base(base_url)
         self.model = model
         self.timeout = timeout
+        self.query_prefix = query_prefix
 
     @lru_cache(maxsize=1024)
     def __call__(self, text: str) -> list[float]:
@@ -197,10 +205,41 @@ class OpenAIEmbedder:
             raise EmbeddingError(f"OpenAI embedding 响应格式异常：{str(first)[:300]}")
         return _floats(first["embedding"])
 
+    def embed_query(self, text: str) -> list[float]:
+        return self(self.query_prefix + (text or ""))
+
+
+class LlamaCppEmbedder(OpenAIEmbedder):
+    """Local llama.cpp embedding server convenience wrapper.
+
+    The bundled ``bge-small-zh-v1.5`` is 512-dimensional and uses the
+    instruction for short retrieval queries, not for passages.  Start it with::
+
+        llama-server -m bge-small-zh-v1.5-q8_0.gguf --embedding \
+          --pooling mean --port 8081
+    """
+
+    def __init__(
+        self,
+        base_url: str = "http://127.0.0.1:8081/v1",
+        model: str = "bge-small-zh",
+        *,
+        query_prefix: str = "为这个句子生成表示以用于检索相关文章：",
+        timeout: float = 60.0,
+    ) -> None:
+        super().__init__(
+            "local",
+            base_url=base_url,
+            model=model,
+            timeout=timeout,
+            query_prefix=query_prefix,
+        )
+
 
 __all__ = [
     "EmbeddingError",
     "EmbeddingHTTPError",
     "OllamaEmbedder",
     "OpenAIEmbedder",
+    "LlamaCppEmbedder",
 ]

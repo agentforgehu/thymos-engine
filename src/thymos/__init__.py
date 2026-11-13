@@ -30,7 +30,7 @@ from .control import AuditTrace, ContextPlan, MemoryController, OperatorReport
 from .engine import Thymos
 from .agent import AgentMemory, estimate_importance
 from .llm_appraisal import LLMAppraiser
-from .embedding_http import EmbeddingError, OllamaEmbedder, OpenAIEmbedder
+from .embedding_http import EmbeddingError, LlamaCppEmbedder, OllamaEmbedder, OpenAIEmbedder
 from .facts import Fact, FactStore
 from .policy import AffectDecision, AffectPolicy, QueryIntent, classify_intent
 from .safety import redact_pii, sanitize_memory_text
@@ -38,7 +38,7 @@ from .sqlite_store import SQLiteMemoryStore
 from .tokens import estimate_tokens, trim_to_tokens
 from .types import Appraisal, Emotion, MemoryItem, RetrievalResult
 
-__version__ = "0.3.4"
+__version__ = "0.3.5"
 
 __all__ = [
     "Thymos",
@@ -57,6 +57,7 @@ __all__ = [
     "explain_appraisal",
     "OllamaEmbedder",
     "OpenAIEmbedder",
+    "LlamaCppEmbedder",
     "EmbeddingError",
     "Fact",
     "FactStore",

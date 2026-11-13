@@ -270,3 +270,38 @@
 ### 11.3 结论
 
 0.3.4 解决的是**“全量 JSON 重写 + 无版本、无迁移”**，不是“几千条一定卡”的全部。合成基准里 3000 条 JSON 保存约 68 ms、SQLite 约 62 ms；真正的扩展瓶颈更可能是检索扫描，而不是 `json.dump`。当前 247 项测试通过；下一步应做 embedding/索引与崩溃注入，而不是把 SQLite 当成万能药。
+
+## 12. 0.3.5 写路径、检索排序与 100 轮长测（2026-11-13）
+
+完整实现见 [WRITE_PATH.md](WRITE_PATH.md)，真实模型结果见 [LONGRUN_100.md](LONGRUN_100.md)。
+
+### 12.1 已关闭
+
+| 问题 | 根因 | 修复 | 证据 |
+|---|---|---|---|
+| 每轮都写，记忆库被闲聊/重复撑大 | 没有写准入 | `store/merge/reinforce/skip` 四种决策，`last_write` 审计 | `tests/test_write_path.py` |
+| 同一句话重复出现仍新增条目 | 没有跨会话精确去重 | `canonical_key` + 规范化文本；重复只强化 | `test_exact_duplicate_reinforces_instead_of_storing_twice` |
+| 去重后情绪不更新 | 旧路径把“写记忆”和“感受”绑死 | `perceive(store_memory=False)` 仍更新情绪/心境/内分泌 | `test_perceive_can_feel_without_storing` |
+| 多个候选概率饱和后，显著度把相关记忆挤下去 | `score` 用 sigmoid 概率 + salience 乘数 | 改用未压缩 activation 排序；`probability` 保留遥测 | `test_direct_lexical_match_beats_high_salience_distractor` |
+| 中文短查询只有二元组 BM25，单字线索丢失 | 词法通道过窄 | 增加单字 BM25 通道（0.85 权重） | 24 条混合记忆 R@1 0.333→0.583（bge） |
+| `项目改名`、`截止 5 月 1 日`、`AI 产品`、`宠物送回恩施`、`十二点睡` 抽不到 | 规则覆盖不足 | 补中文谓词与更新规则 | `test_project_rename_and_deadline_update` 等 |
+| 旧事实复述覆盖新值 | 单值事实没有更新线索守卫 | 裸复述不覆盖；`改/换/搬/截止/最近` 等才更新 | `test_old_deadline_restatement_does_not_override_new_value` |
+| `现在住在徐汇区` 被当成城市 | 城市规则不区分区县 | 区/县/镇不作为 city；`搬到上海` 抽城市 | `test_district_is_not_stored_as_city` |
+| “还记得我住在哪、做什么工作”被当成全量档案 | `记得` 触发 summary | 有具体谓词匹配时走定向选择 | `test_specific_remember_query_does_not_dump_profile` |
+| 宠物名只覆盖“养了一只猫，叫豆豆” | 不覆盖“叫豆豆的猫/猫豆豆最近/把猫豆豆送回” | 补三条 `pet_name` 规则并去重 | `test_pet_name_from_name_before_noun_and_relocation`；100 轮 99/100 → 100/100 |
+
+### 12.2 仍开放
+
+| 级别 | 问题 | 现状 | 下一步 |
+|---|---|---|---|
+| P0 | 中文召回仍不是生产级 | 24 条混合记忆 bge-small R@1 0.583、R@3 0.750；哈希 R@1 0.333 | 更大中文业务集、bge-m3/自训嵌入、FTS5/向量索引 |
+| P0 | 写路径阈值没有真人标注 | 0.90 相似度、72 小时窗口是工程默认 | 100–200 条人工标注的 merge/non-merge 对，做 P/R 曲线 |
+| P1 | 事实冲突仍是规则 | 单值状态有更新守卫，多项目/多对象仍可能错 | 事实作用域（项目、对象）+ LLM 抽取 + 人工纠正 |
+| P1 | 100 轮是作者构造场景 | 不是真实用户数据，没有盲评 | 真实多会话日志回放 + 人工盲评 |
+| P1 | 语义合并会改写内容 | `merged_from` 只保留最近 8 条，不是完整事件日志 | 原始消息外存；合并只改索引层 |
+| P2 | 检索仍是内存线性扫描 | SQLite 只改持久化 | 10k 条 p95 基准；FTS5/向量索引 |
+| P2 | 疲劳在高频长测中仍可能饱和 | 100 轮压力峰值约 0.27，疲劳未作为主要指标 | 睡眠/作息场景单独审计 |
+
+### 12.3 结论
+
+0.3.5 关闭的是**“每轮全存、重复堆积、排序被显著度翻转、旧事实回写”**这四类工程问题，不是“中文记忆已经做好”。真实 100 轮（本地 35B + bge-small）100/100 上下文/回答探针、0 模型错误；这只证明系统在作者构造的长场景里能稳定运行，不证明真实用户会满意。当前测试总数 **263 项**。

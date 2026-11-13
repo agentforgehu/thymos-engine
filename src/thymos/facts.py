@@ -57,6 +57,7 @@ _PREDICATE_LABELS = {
     "address": "地址",
     "pet_name": "宠物",
     "pet_breed": "宠物品种",
+    "pet_location": "宠物位置",
     "allergy": "过敏",
     "project": "项目",
     "deadline": "截止",
@@ -84,6 +85,7 @@ _PRIORITY = {
     "wake": 7,
     "pet_name": 7,
     "pet_breed": 6,
+    "pet_location": 6,
     "project": 7,
     "deadline": 6,
     "coffee_sugar": 5,
@@ -105,6 +107,7 @@ _QUERY_KEYWORDS = {
     "address": ("地址", "住址", "门牌", "哪里", "哪儿"),
     "pet_name": ("猫", "狗", "宠物", "豆豆"),
     "pet_breed": ("猫", "狗", "宠物", "品种"),
+    "pet_location": ("猫", "狗", "宠物", "豆豆", "在哪里", "哪儿", "送"),
     "allergy": ("过敏", "忌口", "不能吃"),
     "project": ("项目", "项目名", "项目叫什么", "潮汐", "piko"),
     "deadline": ("交付", "截止", "deadline", "日期"),
@@ -128,6 +131,28 @@ _NEGATED_PREFIX = re.compile(r"(?:不|没|没有|并非|不是|别)[^，。！�
 
 _MOVE_CUES = ("决定", "已经搬", "搬好了", "下周搬", "搬完")
 _FUTURE_DAY = 86400.0
+
+# A bare restatement of an old value ("项目 4 月 15 日交付") must not silently
+# undo a newer correction.  These cues mark an explicit update.  The guard is
+# intentionally limited to single-valued state predicates; multi-valued facts
+# (allergies, projects, family events) are allowed to accumulate.
+_SINGLE_VALUE_STATE = frozenset({"city", "address", "job", "deadline", "sleep", "wake", "pet_location"})
+_UPDATE_CUES = (
+    "改",
+    "换",
+    "搬",
+    "新",
+    "现在",
+    "最近",
+    "截止",
+    "延",
+    "提前",
+    "推迟",
+    "调到",
+    "好多了",
+    "不用了",
+    "送回",
+)
 
 
 def _clean(value: str) -> str:
@@ -270,25 +295,32 @@ def extract_candidates(text: str, at: float) -> list[ExtractedFact]:
         ("name", r"我叫([^\s，。,.!?！？]{1,12})"),
         ("name", r"我的名字(?:是|叫)([^\s，。,.!?！？]{1,12})"),
         ("city", r"(?:住在|现在在|目前在)([^\s，。,.!?！？]{2,12})"),
+        ("city", r"我搬到([^\s，。,.!?！？]{2,12})了"),
         ("city", r"我从[^\s，。,.!?！？]{2,12}(?:来|到)([^\s，。,.!?！？]{2,12})"),
         ("city", r"(?:在|去)([^\s，。,.!?！？]{2,12})(?:工作|上班|生活)"),
         ("hometown", r"我从([^\s，。,.!?！？]{2,12})(?:来|到)"),
         ("address", r"(?:地址是|住址是)([^。；;\n]+)"),
         ("pet_name", r"(?:养了一只(?:猫|狗)[，,]\s*叫|我的(?:猫|狗)叫)([^，。；;\n]{1,12})"),
+        ("pet_name", r"养了一只叫([^，。；;\n]{1,12})的(?:猫|狗)"),
+        ("pet_name", r"(?:我的)?(?:猫|狗)(?!叫)([^\s，。；;\n]{1,8}?)(?:最近|今天|很|不|在|被|送|叫|，)"),
+        ("pet_name", r"(?:把|将)(?:猫|狗)([^\s，。；;\n]{1,8})(?:送回|送到)"),
         ("pet_breed", r"是(橘猫|狸花猫|黑猫|白猫|布偶猫|柴犬|金毛|柯基)"),
         ("allergy", r"对([^，。；;\n]{1,12})过敏"),
-        ("project", r"(?:在做(?:一个)?叫|项目(?:名)?叫|项目是)[「\"']?([^」\"'，。；;\n]{1,20})[」\"']?(?:的)?(?:项目)?"),
+        ("project", r"(?:在做(?:一个)?叫|项目(?:名)?叫|项目是|项目改名|项目更名为)[「\"']?([^」\"'，。；;\n]{1,20})[」\"']?(?:的)?(?:项目)?"),
         ("deadline", r"(\d{1,2}\s*月\s*\d{1,2}\s*日?)\s*(?:前)?(?:要)?交付"),
+        ("deadline", r"(?:截止|deadline)\s*(?:是|到|在)?\s*(\d{1,2}\s*月\s*\d{1,2}\s*日?)"),
         ("job", r"我是([^，。；;\n]{1,16}(?:开发者|工程师|设计师|老师|学生))"),
-        ("job", r"(?:做|从事)([^，。；;\n]{0,16}?(?:工程师|开发者|程序员|设计师|运营|产品经理|销售|老师|医生|律师|会计|软件|开发))"),
+        ("job", r"(?:做|从事)([^，。；;\n]{0,16}?(?:工程师|开发者|程序员|设计师|运营|产品经理|销售|老师|医生|律师|会计|软件|开发|产品))"),
         ("family", r"我(妹妹|姐姐|哥哥|弟弟|妹|姐|哥|弟|爸爸|妈妈|父亲|母亲|女儿|儿子|老公|老婆)"),
         ("friend", r"朋友叫([^，。；;\n]{1,12})"),
-        ("sleep", r"晚上(?:一般)?([^，。；;\n]{1,12})睡"),
+        ("sleep", r"(?:晚上|每晚)?(?:一般|通常|总是|经常|常常)?(?:在)?([零一二三四五六七八九十百\d]{1,4}点(?:前|后|左右)?)(?:才|后|之后|左右)?睡"),
+        ("sleep", r"([零一二三四五六七八九十百\d]{1,4}点)(?:才|就)?睡"),
         ("wake", r"早上(?:一般)?([^，。；;\n]{1,12})起"),
         ("food_like", r"(?<!不)(?:喜欢|爱吃|常吃)吃?([^，。；;\n]{1,12})"),
         ("food_dislike", r"(?:不喜欢|不爱吃|不吃)吃?([^，。；;\n]{1,12})"),
         ("food_dislike", r"(?:不要|不吃|忌口)(香菜|葱|蒜|辣|海鲜|花生|芒果|牛奶|鸡蛋|牛肉|羊肉)"),
         ("food_dislike", r"(香菜|葱|蒜|辣|海鲜|花生|芒果|牛奶|鸡蛋|牛肉|羊肉)(?:不要|不吃|忌口)"),
+        ("pet_location", r"(?:把|将)(?:猫|狗)[^，。；;\n]{0,12}(?:送回|送到|带去)([^，。；;\n给让]{2,12})"),
     ]
     for predicate, pattern in rules:
         # Preference/event extraction is only safe for assertions.  A question
@@ -304,6 +336,16 @@ def extract_candidates(text: str, at: float) -> list[ExtractedFact]:
                 continue
             if predicate in {"sleep", "wake"} and match.group(1).startswith(
                 ("不", "没", "未")
+            ):
+                continue
+            if predicate == "city" and match.group(1).endswith(("区", "县", "镇")):
+                # "现在住在徐汇区" is a district, not a city.  A preceding
+                # "搬到上海" rule supplies the city when available.
+                continue
+            if predicate == "sleep" and match.group(1) in {"睡眠", "不好", "很不好"}:
+                continue
+            if predicate == "food_dislike" and match.group(1).strip() == "饭" and (
+                "猫" in text or "狗" in text
             ):
                 continue
             add(predicate, match.group(1))
@@ -325,7 +367,7 @@ def extract_candidates(text: str, at: float) -> list[ExtractedFact]:
             add("health_event", match.group(1).replace("了", ""), event_at=event_at)
         for match in re.finditer(
             r"我(妹妹|姐姐|哥哥|弟弟|妹|姐|哥|弟|爸爸|妈妈|家人)[^。；;\n]{0,24}"
-            r"(结婚|婚礼|生孩子|住院|手术|搬家|考试|生日)",
+            r"(结婚|婚礼|生孩子|住院|手术|搬家|考试|生日)[^。；;\n]{0,20}",
             text,
         ):
             # A future family event is known now ("my sister is getting
@@ -541,6 +583,15 @@ class FactStore:
     ) -> list[Fact]:
         out = []
         for item in extract_candidates(text, at):
+            if (
+                item.predicate in _SINGLE_VALUE_STATE
+                and self.current(subject, item.predicate, at) is not None
+                and not any(cue in text for cue in _UPDATE_CUES)
+            ):
+                # Treat this as a restatement, not a correction.  The old
+                # value remains current; the observation is still available in
+                # episodic memory if a host wants to inspect it.
+                continue
             out.append(
                 self.add(
                     subject,
@@ -625,14 +676,14 @@ class FactStore:
         for fact in active:
             grouped.setdefault(fact.predicate, []).append(fact)
 
-        summary_query = any(
-            word in q for word in ("总结", "记得", "关于我", "我是谁", "介绍", "全部", "所有", "档案", "资料")
-        )
         matched = {
             predicate
             for predicate in grouped
             if any(keyword in q for keyword in _QUERY_KEYWORDS.get(predicate, ()))
         }
+        summary_query = any(
+            word in q for word in ("总结", "关于我", "我是谁", "介绍", "全部", "所有", "档案", "资料")
+        ) or ("记得" in q and not matched)
 
         if summary_query or not q:
             return sorted(
@@ -700,14 +751,14 @@ class FactStore:
         for fact in active:
             grouped.setdefault(fact.predicate, []).append(fact)
 
-        summary_query = any(
-            word in q for word in ("总结", "记得", "关于我", "我是谁", "介绍", "全部", "所有", "档案", "资料")
-        )
         matched = {
             predicate
             for predicate in grouped
             if any(keyword in q for keyword in _QUERY_KEYWORDS.get(predicate, ()))
         }
+        summary_query = any(
+            word in q for word in ("总结", "关于我", "我是谁", "介绍", "全部", "所有", "档案", "资料")
+        ) or ("记得" in q and not matched)
         selected = self.match_predicates(q, at=at)
 
         lines = ["## 当前事实（结构化，优先于情景记忆）"]

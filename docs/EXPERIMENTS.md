@@ -1,6 +1,6 @@
 # 实验报告：五个可复现实验
 
-> 版本：0.3.4（五个主实验自 0.1.0 起未变；附录 A 为 0.1.2 新增；0.3.1 增加口语情绪/心境本地长测，0.3.2 增加规则 vs LLM 评价探针，见 [LANGUAGE_MOOD_AUDIT.md](LANGUAGE_MOOD_AUDIT.md) 与 [LLM_APPRAISAL.md](LLM_APPRAISAL.md)）
+> 版本：0.3.5（五个主实验自 0.1.0 起未变；附录 A 为 0.1.2 新增；0.3.1 增加口语情绪/心境本地长测，0.3.2 增加规则 vs LLM 评价探针，见 [LANGUAGE_MOOD_AUDIT.md](LANGUAGE_MOOD_AUDIT.md) 与 [LLM_APPRAISAL.md](LLM_APPRAISAL.md)）
 >
 > 运行：`python experiments/run_experiments.py`
 >
@@ -307,3 +307,32 @@ python experiments/retrieval_benchmark.py --embedding ollama --model bge-m3
 | MRR | 0.572 |
 
 失败的典型是 `coffee`（“平时喝什么咖啡” vs “冰美式”）、`work`（“工作上的事” vs “项目评审”）和 `peanut`（“坚果” vs “花生”）：没有共享字符，哈希 n-gram 无法建立同义关系。这正是 `--embedding ollama --embedding-model bge-m3` 要解决的问题；换 embedding 后请用同一脚本重跑，而不是凭感觉判断。
+
+## 附录 B：完整引擎 24 条混合记忆与写路径
+
+附录 A 只测 embedding。这里让 12 个目标 + 12 个干扰项进入完整 `Thymos`，经过激活、词法、标签、心境和关联扩散后再排序：
+
+| 嵌入 | R@1 | R@3 | MRR |
+|---|---:|---:|---:|
+| 哈希 n-gram（零依赖） | 0.333 | 0.417 | 0.417 |
+| bge-small-zh-v1.5（本地 GGUF） | 0.583 | 0.750 | 0.661 |
+
+这组数字暴露了两个问题：
+
+1. 真实中文嵌入比哈希好，但仍远未到“生产可用”；`coffee`、`guitar`、`peanut` 仍会失败。
+2. 旧排序在 sigmoid 概率饱和后会被显著度乘数翻转。0.3.5 改成未压缩 activation 排序，`probability` 只保留给复习质量/遥测。
+
+写路径的 100 轮离线结果（`experiments/longrun_100.py --offline`）：
+
+| 指标 | 值 |
+|---|---:|
+| 记忆条数 / 轮数 | 67 / 100 |
+| 每轮新增 | 0.67 |
+| store / skip / reinforce | 67 / 31 / 2 |
+| 事实探针上下文 | 100 / 100 |
+| 心境范围 | 约 0.37 |
+| 压力峰值 | 约 0.27 |
+
+真实 35B + bge-small 的 100 轮结果、失败项与延迟见 [LONGRUN_100.md](LONGRUN_100.md)。这不是“效果很好”的证明；它是稳定性与可复现性的证据。
+
+最终真实 100 轮：上下文/回答探针 **100/100**、0 模型错误、66 条记忆、平均 **5.27 s/轮**、心境跨度 **0.3712**、压力峰值 **0.2671**、平均上下文 **311.3 字符**。第一次跑到 99/100，失败点是宠物名抽取缺口，补规则后重跑通过。

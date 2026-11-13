@@ -6,16 +6,16 @@
 
 一个本地优先、可解释、可复现的「情绪 × 记忆 × 内分泌 × 环境」耦合引擎。
 
-[English](README.en.md) · [产品定义](docs/PRODUCT.md) · [教程](docs/TUTORIAL.md) · [MCP 接入](docs/MCP.md) · [P0–P2 升级](docs/UPGRADE_P0_P2.md) · [目标校准与同类项目](docs/STRATEGY.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [50 轮实测](docs/LOCAL_LLM_50_TEST.md) · [混合门控实测](docs/LOCAL_LLM_MIXED_GATE_TEST.md) · [三项修复复测](docs/LOCAL_LLM_FIXES.md) · [四项修复复测](docs/FACT_EMOTION_FIXES.md) · [SQLite 状态](docs/SQLITE_STATE.md) · [语言与心境审计](docs/LANGUAGE_MOOD_AUDIT.md) · [LLM 评价](docs/LLM_APPRAISAL.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [Held-out 评测](docs/results/heldout_eval.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
+[English](README.en.md) · [产品定义](docs/PRODUCT.md) · [教程](docs/TUTORIAL.md) · [MCP 接入](docs/MCP.md) · [P0–P2 升级](docs/UPGRADE_P0_P2.md) · [目标校准与同类项目](docs/STRATEGY.md) · [研究综述](docs/RESEARCH.md) · [设计文档](docs/DESIGN.md) · [实验报告](docs/EXPERIMENTS.md) · [本地实测](docs/LOCAL_LLM_TEST.md) · [50 轮实测](docs/LOCAL_LLM_50_TEST.md) · [混合门控实测](docs/LOCAL_LLM_MIXED_GATE_TEST.md) · [三项修复复测](docs/LOCAL_LLM_FIXES.md) · [四项修复复测](docs/FACT_EMOTION_FIXES.md) · [写路径](docs/WRITE_PATH.md) · [100 轮长测](docs/LONGRUN_100.md) · [SQLite 状态](docs/SQLITE_STATE.md) · [语言与心境审计](docs/LANGUAGE_MOOD_AUDIT.md) · [LLM 评价](docs/LLM_APPRAISAL.md) · [小上下文实测](docs/BUDGET_CONTEXT.md) · [Held-out 评测](docs/results/heldout_eval.md) · [不足与审计](docs/GAPS.md) · [验证协议](docs/EVALUATION.md) · [命名说明](docs/NAMING.md) · [路线图](docs/ROADMAP.md) · [集成指南](docs/INTEGRATION.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.3.4%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.3.5%20alpha-f59e0b)
 
 </div>
 
-> **状态：v0.3.4 本地实验版，控制平面 MVP。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学内核算上的一层控制平面：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，再决定“这次该用哪种记忆、情绪能不能参与、预算先给谁、为什么这样选”。0.3.4 增加 SQLite 状态后端与 JSON 迁移；0.3.3 修复 LLM 结构化评价的嵌套载荷与标签落点，并新增 `/api/appraise` 调试端点。规则仍是默认与失败兜底。API 仍可能变化。
+> **状态：v0.3.5 本地实验版，控制平面 MVP。** 这不是经过临床验证的心理学模型，也不是“有意识”的系统。它是一个可检查的动力学内核算上的一层控制平面：把记忆科学、评价理论和内分泌调节放进同一组状态变量里，再决定“这次该用哪种记忆、情绪能不能参与、预算先给谁、为什么这样选”。0.3.5 增加写路径准入/合并审计、中文 BM25 单字通道、检索排序修复与 100 轮长测；0.3.4 增加 SQLite 状态后端与 JSON 迁移。规则仍是默认与失败兜底。API 仍可能变化。
 
 > **0.3.1 审计结论：** `你怎么这么笨，闭嘴` 从 `neutral` 修成 `anger`；`特别开心/别人夸我` 不再被「别」反转；`闭嘴/你真好/项目黄了` 这类短消息不再因为长度 <12 被 `observe` 丢弃。30 轮本地 35B 定向长测 30/30 探针通过，单条辱骂心境约 -0.054，单条感谢约 +0.059，日常 30 轮心境范围约 0.232。证据、边界和未关闭项见 [docs/LANGUAGE_MOOD_AUDIT.md](docs/LANGUAGE_MOOD_AUDIT.md)。
 
@@ -35,7 +35,7 @@
 2. **心情有层次，不是一个分数。** 情绪一两小时就退，心境是数小时到一天的慢变量，底下还有皮质醇、血清素和更慢的适应负荷在托着；所以它会“缓过来”，不是切一个标签。
 3. **每次回忆都会改写那条记忆。** 同一件事今天想起来和三个月后想起来，情绪电荷不一样；回忆不是读取文件，是再巩固。
 
-短板也写在明面上：**中文召回一般，参数还没调过**。当前嵌入是哈希 n-gram，评价是词典启发式；它适合做原型、研究和可解释的基线，不是开箱即用的生产记忆层。
+短板也写在明面上：**中文召回仍不是生产级，参数还没调过**。默认嵌入是哈希 n-gram；真实中文嵌入（bge-small-zh / bge-m3）明显更好，但需要本地服务。评价是词典启发式，宿主可以换成 LLM 结构化评价。它适合做原型、研究和可解释的基线，不是开箱即用的生产记忆层。
 
 ---
 
@@ -185,6 +185,17 @@ memory.end_session(7.5)                                      # 夜间/退出
 
 只有当回复里包含承诺或重要的自我披露时，才传第二个参数 `assistant_text`；不要把每条模型回复都写回记忆。本地小模型用 `max_chars` 控制预算，不要直接拼完整历史。
 
+### 写入不是“全存”
+
+`observe()` 现在会先做写路径判断，而不是无条件新建条目：
+
+- **store**：通过重要性门槛，且没有可合并候选；
+- **merge**：72 小时内、语义相似度 ≥ 0.90、数字/日期不冲突；
+- **reinforce**：规范化文本完全相同，跨会话也生效；
+- **skip**：低重要性或纯寒暄。
+
+每次决策都写入 `mind.snapshot()["last_write"]`，包含 `reason`、`similarity`、`memory_id`。重复一句辱骂不会新增第二条记忆，但这一轮的情绪/心境仍会更新——**去重不等于事件没发生**。完整设计、配置与边界见 [写路径](docs/WRITE_PATH.md)。
+
 ### 让 LLM 判断，Thymos 记录
 
 如果宿主已经有 LLM，不需要让 Thymos 再维护一套“情绪词典”作为唯一入口。最干净的分工是：**LLM 填 `Appraisal`，Thymos 用它更新情绪、心境和记忆。**
@@ -277,7 +288,7 @@ python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 | Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
 | Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
 | ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
-| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，247 项测试 + 可复现实验** |
+| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，263 项测试 + 可复现实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
 
@@ -313,6 +324,9 @@ python experiments/replay_harness.py --llm mock
 | 天气耦合 | 30 天心境平均绝对差 **0.012**，最大 **0.028**（效应刻意保持很小） |
 | 情绪记忆 | 半衰期：中性 **9.6 天** / 轻度 **15.8 天** / 高唤醒 **35.9 天** |
 | 中文 embedding 检索 | 12 条基线：hash recall@1 **0.417** / recall@3 **0.750** / MRR **0.572**；可用 `--embedding ollama` 对比 bge-m3 |
+| 完整引擎中文召回 | 24 条混合记忆：hash R@1 **0.333** / R@3 **0.417**；bge-small-zh R@1 **0.583** / R@3 **0.750** / MRR **0.661**（见 [WRITE_PATH.md](docs/WRITE_PATH.md)） |
+| 写路径准入 | 100 轮离线：67 条记忆（0.67/轮）、31 skip、2 reinforce；事实探针上下文 **100/100** |
+| 100 轮真实模型 | 本地 35B + bge-small：**100/100** 上下文/回答探针、0 模型错误；66 条记忆、平均 **5.27 s/轮**、心境跨度 **0.3712**、压力峰值 **0.2671**（见 [LONGRUN_100.md](docs/LONGRUN_100.md)） |
 | 小上下文记忆 | 900/600 字符预算、50 轮：Thymos **16/16**；最近对话基线 **7/16**（见 [BUDGET_CONTEXT.md](docs/BUDGET_CONTEXT.md)） |
 | 混合查询门控 | 65 轮/27 探针 **27/27**；混合意图 **8/8**；6 查询×4 门控 **24/24**；状态块 +70–95 字符，事实召回不变（见 [LOCAL_LLM_MIXED_GATE_TEST.md](docs/LOCAL_LLM_MIXED_GATE_TEST.md)） |
 | 三项体验修复 | 65 轮：整体 **96.3%**、混合意图 **100%**、0 旧事实污染；`anticipation` 从 28/30 降到 6/65；压力峰值 **0.196**；事实块占上下文 **10–30%**（见 [LOCAL_LLM_FIXES.md](docs/LOCAL_LLM_FIXES.md)） |
@@ -352,14 +366,17 @@ python -m thymos demo
 | 现居 / 来源 | `我住在杭州` / `我从恩施来上海` | `city=上海`，`hometown=恩施` |
 | 地址 | `地址是上海市徐汇区` | `address=上海市徐汇区`，并推出 `city=上海` |
 | 职业 | `我是软件工程师` / `我做软件` | `job=软件工程师` / `job=软件` |
-| 项目 | `我在做一个叫「潮汐」的项目` / `他的项目叫 piko` | `project=潮汐` / `project=piko` |
+| 职业更新 | `我换了工作，现在在做 AI 产品` | `job=AI 产品`，旧值关闭 |
+| 项目 | `我在做一个叫「潮汐」的项目` / `他的项目叫 piko` / `项目改名「潮汐 2」` | `project=潮汐` / `project=piko` / `project=潮汐 2` |
+| 截止日期 | `4 月 15 日前要交付` / `截止 5 月 1 日` | `deadline=4 月 15 日` / `deadline=5 月 1 日`，旧值关闭 |
 | 家人 / 家事 | `我妹下个月结婚` | `family=妹`，`family_event=我妹下个月结婚` |
 | 过敏 / 忌口 | `我对花生过敏` / `香菜不要` | `allergy=花生` / `food_dislike=香菜` |
 | 饮食偏好 / 事件 | `我喜欢吃火锅` / `今天吃火锅` | `food_like=火锅` / `food_event=火锅` |
 | 健康事件 | `昨天去看了牙` | `health_event=看牙` |
-| 作息 / 咖啡 | `晚上十一点前睡` / `咖啡不加糖` | `sleep=十一点前` / `coffee_sugar=不加糖` |
+| 宠物位置 | `我把猫豆豆送回恩施给爸妈养了` | `pet_location=恩施` |
+| 作息 / 咖啡 | `晚上十一点前睡` / `最近十二点睡` / `咖啡不加糖` | `sleep=十一点前` / `sleep=十二点` / `coffee_sugar=不加糖` |
 
-没有命中的句子不会凭空生成事实；需要更高覆盖率时，用 `LLMFactExtractor`（见 [docs/INTEGRATION.md](docs/INTEGRATION.md)）把模型抽取结果写入同一个 `FactStore`。句式覆盖与边界会随测试扩充，当前 247 项测试中有专门的中文事实回归。
+没有命中的句子不会凭空生成事实；需要更高覆盖率时，用 `LLMFactExtractor`（见 [docs/INTEGRATION.md](docs/INTEGRATION.md)）把模型抽取结果写入同一个 `FactStore`。句式覆盖与边界会随测试扩充，当前 263 项测试中有专门的中文事实回归。
 
 ---
 
@@ -381,7 +398,7 @@ python -m thymos demo
 - 情绪半衰期、心境时间常数等是**可调参数**，不是普遍常数；个体差异远大于均值。
 - 天气效应在文献中平均很小、个体差异很大；本系统刻意保守，但仍可能让用户觉得“被代表”。
 - 记忆检索的嵌入是**哈希 n-gram**，只保证可复现，不保证语义质量；生产环境应替换为真实嵌入。
-- **中文召回一般**：哈希 n-gram 对同义改写、跨句指代和长距离语义的召回有限；12 条中文基线为 recall@1 0.417 / recall@3 0.750 / MRR 0.572（`experiments/retrieval_benchmark.py`）。中文场景建议加 `--embedding ollama --embedding-model bge-m3`，或换成自己的 embedding。
+- **中文召回仍不是生产级**：哈希 n-gram 对同义改写、跨句指代和长距离语义的召回有限；24 条混合记忆上 R@1 0.333，bge-small-zh 也只有 R@1 0.583（`experiments/retrieval_benchmark.py`）。中文场景建议接真实嵌入（bge-small-zh / bge-m3），并用自己的业务语料重测；不要拿公开小基准当生产结论。
 - **参数还没调过**：默认值是文献先验与工程估计的混合，没有做全局敏感性分析、参数恢复或个体化校准；不要把它当成“已经调好的最优参数”。
 - 没有做用户研究，也没有与临床量表对照。不要用它给真实的人打分。
 
@@ -402,7 +419,8 @@ src/thymos/
   environment.py  太阳高度、昼长、季节、天气→心境映射
   weather.py      Open-Meteo 客户端 + 缓存 + 合成天气
   memory.py       痕迹存储 + 稀疏关联图
-  facts.py        多值事实、事件时间、纠正/退休
+  facts.py        多值事实、事件时间、纠正/退休、查询裁剪
+  write_path.py   写路径准入、精确/语义合并与审计
   policy.py       查询意图分类 + 情绪门控策略
   control.py      表示/情绪/预算路由 + 审计轨迹
   backends.py     可插拔记忆后端协议
@@ -418,7 +436,7 @@ src/thymos/
   dashboard.html  零依赖可视化面板
   cli.py          命令行
 experiments/      实验 + 检索基线 + 回放 harness + held-out 评测
-tests/             247 项测试
+tests/             263 项测试
 docs/             教程、研究、设计、实验、命名、路线图
 ```
 
@@ -434,7 +452,8 @@ docs/             教程、研究、设计、实验、命名、路线图
 
 ## 路线图
 
-- **v0.3.4（当前）** SQLite 状态后端：记忆/边/引擎状态分表、schema 版本、JSON 迁移、并发写入测试；247 项测试。
+- **v0.3.5（当前）** 写路径准入/合并、BM25 单字通道、检索排序修复与 100 轮长测；263 项测试。
+- **v0.3.4** SQLite 状态后端：记忆/边/引擎状态分表、schema 版本、JSON 迁移、并发写入测试；247 项测试。
 - **v0.3.3** 评价落点修复版：嵌套 JSON 解包、强负向不被 novelty 覆盖、`/api/appraise` 调试端点；236 项测试。
 - **v0.3.2** 评价分层版：`LLMAppraiser`、一次评价复用、规则兜底；228 项测试。
 - **v0.3.1** 语言/心境审计版：否定边界、口语攻击/感谢/损失线索、短消息重要性、10h/0.40 心境参数；221 项测试。

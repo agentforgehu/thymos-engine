@@ -97,3 +97,50 @@ def test_negated_location_and_job_are_not_extracted():
 def test_negated_allergy_is_not_extracted_but_dislike_is():
     assert extract_facts("我对花生不过敏") == []
     assert dict(extract_facts("我不吃香菜"))["food_dislike"] == "香菜"
+
+
+def test_project_rename_and_deadline_update():
+    store = FactStore()
+    store.observe("我的项目叫「潮汐」，4 月 15 日前要交付。", 1000)
+    store.observe("我的项目改名「潮汐 2」，截止 5 月 1 日。", 2000)
+
+    assert store.current("user", "deadline", 2000).value == "5 月 1 日"
+    assert "潮汐 2" in store.render("我的项目叫什么？", at=2000, max_chars=500)
+    assert "5 月 1 日" in store.render("我的项目什么时候交付？", at=2000, max_chars=500)
+
+
+def test_old_deadline_restatement_does_not_override_new_value():
+    store = FactStore()
+    store.observe("我的项目叫「潮汐」，4 月 15 日前要交付。", 1000)
+    store.observe("我的项目改名「潮汐 2」，截止 5 月 1 日。", 2000)
+    store.observe("项目 4 月 15 日交付。", 3000)
+
+    assert store.current("user", "deadline", 3000).value == "5 月 1 日"
+
+
+def test_pet_relocation_and_sleep_phrase():
+    facts = dict(extract_facts("我把猫豆豆送回恩施给爸妈养了。最近睡眠好多了，十二点睡。"))
+    assert facts["pet_location"] == "恩施"
+    assert facts["sleep"] == "十二点"
+
+
+def test_pet_name_from_name_before_noun_and_relocation():
+    assert dict(extract_facts("我养了一只叫豆豆的猫。"))["pet_name"] == "豆豆"
+    assert dict(extract_facts("我的猫豆豆最近不爱吃饭。"))["pet_name"] == "豆豆"
+    assert dict(extract_facts("我把猫豆豆送回恩施给爸妈养了。"))["pet_name"] == "豆豆"
+    assert extract_facts("我的狗叫旺财，很可爱。") == [("pet_name", "旺财")]
+
+
+def test_district_is_not_stored_as_city():
+    facts = dict(extract_facts("我搬到上海了，现在住在徐汇区。"))
+    assert facts["city"] == "上海"
+
+
+def test_specific_remember_query_does_not_dump_profile():
+    store = FactStore()
+    store.observe("我叫林墨，住在上海，做 AI 产品。", 1000)
+    store.observe("我对花生过敏，晚上十一点睡。", 1000)
+    rendered = store.render("你还记得我住在哪、做什么工作吗？", at=1000, max_chars=500)
+    assert "上海" in rendered
+    assert "AI 产品" in rendered
+    assert "花生" not in rendered

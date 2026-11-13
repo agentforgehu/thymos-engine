@@ -119,6 +119,11 @@ class MemoryItem:
     state: str = "buffer"  # buffer | episodic | semantic | archived
     labile_until: float | None = None
     consolidated_at: float | None = None
+    # Write-path audit.  A merged memory is not overwritten: the original
+    # trace stays, and these fields record how many observations it absorbed.
+    canonical_key: str = ""
+    merged_count: int = 0
+    last_merged_at: float | None = None
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
 
     def to_dict(self) -> dict[str, Any]:
@@ -145,6 +150,8 @@ class MemoryItem:
             "arousal": round(self.arousal, 3),
             "reps": self.reps,
             "lapses": self.lapses,
+            "merged_count": self.merged_count,
+            "last_merged_at": _iso(self.last_merged_at) if self.last_merged_at else "",
             "created_at": _iso(self.created_at),
             "last_access": _iso(self.last_access),
             "age_days": round(self.age_days(now), 4),
@@ -168,6 +175,30 @@ class RetrievalResult:
             "activation": round(self.activation, 4),
             "probability": round(self.probability, 4),
             "components": {k: round(v, 4) for k, v in self.components.items()},
+        }
+
+
+@dataclass
+class WriteDecision:
+    """Why a turn was stored, merged, reinforced or skipped.
+
+    This is deliberately data, not a log string: the host can show it in a
+    debug panel, and the 100-turn harness can count admission outcomes.
+    """
+
+    action: str  # store | merge | reinforce | skip
+    reason: str
+    importance: float = 0.0
+    similarity: float | None = None
+    memory_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "action": self.action,
+            "reason": self.reason,
+            "importance": round(self.importance, 4),
+            "similarity": None if self.similarity is None else round(self.similarity, 4),
+            "memory_id": self.memory_id,
         }
 
 

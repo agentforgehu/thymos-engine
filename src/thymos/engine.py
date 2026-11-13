@@ -88,6 +88,7 @@ class Thymos:
             self.store = store if store is not None else MemoryStore()
         self._controller = None
         self.last_audit: dict[str, Any] = {}
+        self.last_write: dict[str, Any] = {}
         self.facts = FactStore()
         self.affect = AffectDynamics(self.config, self.profile)
         self.endocrine = EndocrineSystem()
@@ -210,8 +211,14 @@ class Thymos:
         context: dict[str, Any] | None = None,
         timestamp: float | None = None,
         learn_facts: bool = True,
-    ) -> MemoryItem:
-        """Encode one event, appraise it, and update affect and hormones."""
+        store_memory: bool = True,
+    ) -> MemoryItem | None:
+        """Appraise one event, update affect/hormones, optionally encode it.
+
+        ``store_memory=False`` is used by the write path when a turn should
+        affect the agent but should not create a second memory trace (a repeat
+        or a low-value turn).  Facts can still be learned independently.
+        """
         if timestamp is not None:
             self.now = float(timestamp)
         self.refresh_environment()
@@ -237,6 +244,21 @@ class Thymos:
             sleep_debt=self._current_sleep_debt(),
             circadian=self._circadian(),
         )
+
+        if not store_memory:
+            if learn_facts:
+                self.facts.observe(content, at=self.now, source=source, memory_id=None)
+            self.affect.touch(self.now)
+            self._log(
+                "feel",
+                {
+                    "content": content,
+                    "emotion": emotion.label,
+                    "intensity": round(emotion.intensity, 3),
+                    "stored": False,
+                },
+            )
+            return None
 
         encoding_gain = self.endocrine.encoding_gain(self.config)
         salience = clamp(
@@ -326,7 +348,8 @@ class Thymos:
         """
         self.refresh_environment()
         query = (query or "").strip()
-        embedding = self.embedder(query)
+        query_embed = getattr(self.embedder, "embed_query", None)
+        embedding = query_embed(query) if callable(query_embed) else self.embedder(query)
         self._ensure_embedding_dim(len(embedding))
         results = retrieve(
             self.store,
@@ -681,6 +704,7 @@ class Thymos:
             "memory": self.stats(),
             "last_context": self._last_context_stats,
             "last_audit": self.last_audit,
+            "last_write": self.last_write,
             "top_memories": self.top_memories(6),
             "events": self.events[-20:],
             "config": {
