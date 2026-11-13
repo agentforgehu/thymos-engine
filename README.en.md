@@ -11,11 +11,11 @@ A local-first, inspectable memory control plane that couples forgetting curves, 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.3.3%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.3.4%20alpha-f59e0b)
 
 </div>
 
-> **Status: v0.3.3, local research sandbox with a control-plane MVP.** This is not a clinically validated model of emotion, and it is not conscious. It is a set of inspectable dynamical hypotheses: what if memory, affect, hormones, sleep and weather shared one clock? 0.3.3 fixes nested LLM appraisal payloads and the dimension-to-label path, and adds a `/api/appraise` debug endpoint; 0.3.2 introduced the optional `LLMAppraiser` and one-appraisal reuse. The lexical rules remain the deterministic default and fallback. Query-intent routing, affect gating, four memory operators, hard context budgets and an audit trace remain. It is still not production-grade memory.
+> **Status: v0.3.4, local research sandbox with a control-plane MVP.** This is not a clinically validated model of emotion, and it is not conscious. It is a set of inspectable dynamical hypotheses: what if memory, affect, hormones, sleep and weather shared one clock? 0.3.4 adds an optional SQLite state backend and JSON migration; 0.3.3 fixed nested LLM appraisal payloads and the dimension-to-label path, and added a `/api/appraise` debug endpoint. The lexical rules remain the deterministic default and fallback. Query-intent routing, affect gating, four memory operators, hard context budgets and an audit trace remain. It is still not production-grade memory.
 
 ---
 
@@ -63,6 +63,17 @@ python -m thymos --offline serve   # http://127.0.0.1:8787/
 ```
 
 `--offline` uses deterministic synthetic weather. Omit it to call Open-Meteo (no API key required).
+
+### Optional SQLite state
+
+Use a `.sqlite` or `.db` path instead of `.json`; old JSON can be imported without modifying the source:
+
+```bash
+python -m thymos --state .thymos/agent.sqlite --offline init --name Lin
+python -m thymos migrate .thymos/agent.json .thymos/agent.sqlite
+```
+
+SQLite removes the full-file rewrite and adds a versioned schema, but retrieval is still an in-memory scan. See [docs/SQLITE_STATE.md](docs/SQLITE_STATE.md).
 
 ## Minimal example
 
@@ -151,7 +162,7 @@ These validate **internal consistency**, not human psychology. See [docs/EXPERIM
 | Letta / MemGPT | hierarchical context | context eviction | — | — | — | partial |
 | Generative Agents | memory stream | recency decay | simple | — | — | yes |
 | ALMA / WASABI | — | — | appraisal + PAD | — | — | partial |
-| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **236 tests + reproducible experiments** |
+| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **247 tests + reproducible experiments** |
 
 Thymos does not compete on memory-recall benchmarks. It competes on **dynamical coherence, inspectability and reproducibility**.
 

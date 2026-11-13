@@ -38,7 +38,7 @@ from .sqlite_store import SQLiteMemoryStore
 from .tokens import estimate_tokens, trim_to_tokens
 from .types import Appraisal, Emotion, MemoryItem, RetrievalResult
 
-__version__ = "0.3.3"
+__version__ = "0.3.4"
 
 __all__ = [
     "Thymos",

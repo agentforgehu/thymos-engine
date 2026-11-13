@@ -1,6 +1,6 @@
 # 实验报告：五个可复现实验
 
-> 版本：0.3.3（五个主实验自 0.1.0 起未变；附录 A 为 0.1.2 新增；0.3.1 增加口语情绪/心境本地长测，0.3.2 增加规则 vs LLM 评价探针，见 [LANGUAGE_MOOD_AUDIT.md](LANGUAGE_MOOD_AUDIT.md) 与 [LLM_APPRAISAL.md](LLM_APPRAISAL.md)）
+> 版本：0.3.4（五个主实验自 0.1.0 起未变；附录 A 为 0.1.2 新增；0.3.1 增加口语情绪/心境本地长测，0.3.2 增加规则 vs LLM 评价探针，见 [LANGUAGE_MOOD_AUDIT.md](LANGUAGE_MOOD_AUDIT.md) 与 [LLM_APPRAISAL.md](LLM_APPRAISAL.md)）
 >
 > 运行：`python experiments/run_experiments.py`
 >

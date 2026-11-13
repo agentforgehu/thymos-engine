@@ -35,6 +35,9 @@ memory.observe(user_text)
 memory.end_session(7.5)
 ```
 
+把状态路径换成 `.sqlite` / `.db` 即启用 SQLite 状态后端；旧 JSON 可无损导入，见
+[SQLITE_STATE.md](SQLITE_STATE.md)。默认仍是 JSON，适合调试和手工 diff。
+
 `AgentMemory` 是薄门面，底层仍然是 `Thymos`；需要完全控制时用 `memory.mind`。
 只有回复里包含承诺/约定/重要自我披露时，才传 `assistant_text`；不要默认保存每条模型回复。
 

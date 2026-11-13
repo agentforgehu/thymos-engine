@@ -189,7 +189,7 @@
 
 ### 8.3 结论
 
-0.3.1 关闭的是**可复现的规则错误和路径错误**：否定边界、口语线索、短消息被丢弃、心境参数过钝。它没有关闭「中文情绪理解」这个开放问题；讽刺、引用、偏好/事件区分、真实用户研究仍然在外面。当前测试总数 **236 项**，30 轮定向长测 30/30，50 轮原长测 17/18（一次猫探针 top-k 漏检）。
+0.3.1 关闭的是**可复现的规则错误和路径错误**：否定边界、口语线索、短消息被丢弃、心境参数过钝。它没有关闭「中文情绪理解」这个开放问题；讽刺、引用、偏好/事件区分、真实用户研究仍然在外面。当前测试总数 **247 项**，30 轮定向长测 30/30，50 轮原长测 17/18（一次猫探针 top-k 漏检）。
 
 ## 9. 0.3.2 LLM 评价分层（2026-11-13）
 
@@ -240,3 +240,33 @@
 ### 10.3 结论
 
 0.3.3 修的是**可复现的落点错误**：维度没有进入 `Appraisal`，或者 novelty 抢走了强负向。它没有证明 LLM 评价更准；真实 DeepSeek 载荷仍需用 `/api/appraise` 对一次，确认 `appraisal.desirability` 不是 0。当前 236 项测试，0.3.3 的标签回归与 API 调试端点均通过。
+
+## 11. 0.3.4 SQLite 状态后端（2026-11-13）
+
+完整说明见 [SQLITE_STATE.md](SQLITE_STATE.md)。
+
+### 11.1 已关闭
+
+| 问题 | 修复 | 证据 |
+|---|---|---|
+| 传入 SQLite store 后，`Thymos.save()` 仍把全部记忆写进 JSON | SQLite 模式把记忆/边/引擎状态分表；`engine_state.memory=[]` | `test_sqlite_state_roundtrip_keeps_memories_and_mood` |
+| 状态文件没有 schema 版本 | `PRAGMA user_version=1`；打开更高版本直接报错 | `test_sqlite_schema_version_is_explicit_and_rejects_newer` |
+| 状态 JSON 版本变化可能静默读取 | `Thymos.from_dict()` 检查 `version`，高于当前版本报错 | `test_sqlite_state_version_is_checked` |
+| 旧 JSON 没有迁移入口 | `python -m thymos migrate old.json new.sqlite`；源文件不改 | `test_migrate_json_to_sqlite_and_keep_facts` |
+| review/遗忘更新只改内存 | `flush()` 在保存时回写对象变更 | `test_sqlite_flush_persists_review_mutations` |
+| 没有并发写入测试 | 两个连接各写 20 条，重开验证 40 条 | `test_sqlite_concurrent_writers_do_not_lose_rows` |
+
+### 11.2 仍开放
+
+| 级别 | 问题 | 现状 | 下一步 |
+|---|---|---|---|
+| P0 | 检索仍是内存线性扫描 | SQLite 只改变持久化，不改变 `retrieve` 的 O(n) | 真实 embedding + FTS5/向量索引；10k 条 p95 基准 |
+| P0 | 没有崩溃注入 | 只测正常关闭与并发写入 | 在 `add/save` 间杀进程，验证 WAL 恢复 |
+| P1 | 没有多进程写者协议 | 依赖 SQLite WAL + `busy_timeout`，没有租约 | 单写者队列或租约；跨进程测试 |
+| P1 | 状态与记忆不是同一事务 | `observe()` 落记忆，`save()` 落心境；崩溃可能只落一半 | 一轮对话一个事务，或事件日志 |
+| P2 | 没有加密/保留期/在线备份 | 只有文件权限与 checkpoint | SQLCipher/操作系统加密、保留期任务、`VACUUM INTO` |
+| P2 | 当前只有 schema v1 | 没有真实 v1→v2 迁移样例 | 下一次字段变更时先写迁移与回滚测试 |
+
+### 11.3 结论
+
+0.3.4 解决的是**“全量 JSON 重写 + 无版本、无迁移”**，不是“几千条一定卡”的全部。合成基准里 3000 条 JSON 保存约 68 ms、SQLite 约 62 ms；真正的扩展瓶颈更可能是检索扫描，而不是 `json.dump`。当前 247 项测试通过；下一步应做 embedding/索引与崩溃注入，而不是把 SQLite 当成万能药。

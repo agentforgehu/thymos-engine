@@ -28,11 +28,17 @@ from .mathx import clamp
 from .memory import MemoryStore
 from .retrieval import retrieve, review, time_bucket_for
 from .safety import MEMORY_HEADER, sanitize_memory_text, wrap_untrusted
+from .sqlite_store import SQLiteMemoryStore
 from .tokens import estimate_tokens
 from .types import Appraisal, Emotion, EnvironmentState, MemoryItem, RetrievalResult
 from .weather import WeatherClient
 
 Embedder = Callable[[str], list[float]]
+SQLITE_SUFFIXES = (".sqlite", ".sqlite3", ".db")
+
+
+def is_sqlite_path(path: str | None) -> bool:
+    return bool(path) and str(path).lower().endswith(SQLITE_SUFFIXES)
 
 
 class Thymos:
@@ -45,7 +51,9 @@ class Thymos:
     config:
         Model parameters.  See docs/DESIGN.md for provenance.
     state_path:
-        Optional JSON file for persistence.  If it exists it is loaded.
+        Optional JSON or SQLite file for persistence.  A ``.sqlite``/``.db``
+        suffix selects the SQLite state backend; JSON remains the default for
+        compatibility.
     now:
         Initial timestamp.  Defaults to wall-clock time; pass a fixed value for
         reproducible simulations.
@@ -72,14 +80,18 @@ class Thymos:
             self.config.offline = offline
         self.rng = random.Random(self.config.seed)
         self.embedder = embedder or make_embedder(self.config.embedding_dim)
-        self.store = store if store is not None else MemoryStore()
+        self.state_path = state_path
+        state_existed = bool(state_path and os.path.exists(state_path))
+        if store is None and state_path and is_sqlite_path(state_path):
+            self.store = SQLiteMemoryStore(state_path)
+        else:
+            self.store = store if store is not None else MemoryStore()
         self._controller = None
         self.last_audit: dict[str, Any] = {}
         self.facts = FactStore()
         self.affect = AffectDynamics(self.config, self.profile)
         self.endocrine = EndocrineSystem()
         self.now = float(now if now is not None else time.time())
-        self.state_path = state_path
         self.events: list[dict[str, Any]] = []
         self.weather = WeatherClient(self.config)
         self.environment = self.weather.current(self.profile, self.now)
@@ -87,7 +99,7 @@ class Thymos:
         self._tick_count = 0
         self._last_context_stats: dict[str, Any] = {}
 
-        if state_path and os.path.exists(state_path):
+        if state_existed and state_path:
             self.load(state_path)
 
     @property
@@ -710,6 +722,12 @@ class Thymos:
         embedder: Embedder | None = None,
         store: MemoryBackend | None = None,
     ) -> "Thymos":
+        version = int(data.get("version") or 0)
+        if version > cls.VERSION:
+            raise ValueError(
+                f"state version {version} is newer than supported {cls.VERSION}; "
+                "upgrade Thymos instead of opening it with an older build"
+            )
         profile = Profile.from_dict(data.get("profile"))
         config = ThymosConfig.from_dict(data.get("config"))
         # Do not pass state_path here: __init__ would try to load the same file
@@ -743,6 +761,24 @@ class Thymos:
         target = path or self.state_path
         if not target:
             raise ValueError("no state path configured")
+        if is_sqlite_path(target):
+            if not isinstance(self.store, SQLiteMemoryStore):
+                raise ValueError(
+                    "SQLite state requires SQLiteMemoryStore; pass a .sqlite store "
+                    "or let Thymos create one from the state path"
+                )
+            if os.path.abspath(self.store.path) != os.path.abspath(target):
+                raise ValueError(
+                    f"SQLite store path {self.store.path!r} does not match state path {target!r}"
+                )
+            # Memory is already durable per item; flush review/decay mutations
+            # and store the non-memory engine snapshot in the same database.
+            self.store.flush()
+            state = self.to_dict()
+            state["memory"] = []
+            self.store.save_state(state)
+            self.state_path = target
+            return target
         os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
         tmp = f"{target}.tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
@@ -760,6 +796,26 @@ class Thymos:
         target = path or self.state_path
         if not target or not os.path.exists(target):
             raise FileNotFoundError(target)
+        if is_sqlite_path(target):
+            if not isinstance(self.store, SQLiteMemoryStore):
+                self.store = SQLiteMemoryStore(target)
+            if os.path.abspath(self.store.path) != os.path.abspath(target):
+                raise ValueError(
+                    f"SQLite store path {self.store.path!r} does not match state path {target!r}"
+                )
+            state = self.store.load_state()
+            if state is None:
+                raise ValueError(
+                    f"{target} has no engine_state; use `thymos migrate` to import a JSON state"
+                )
+            loaded = Thymos.from_dict(
+                state,
+                state_path=target,
+                embedder=self.embedder,
+                store=self.store,
+            )
+            self.__dict__.update(loaded.__dict__)
+            return self
         with open(target, "r", encoding="utf-8") as fh:
             data = json.load(fh)
         loaded = Thymos.from_dict(

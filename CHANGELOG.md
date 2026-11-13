@@ -2,6 +2,30 @@
 
 本项目遵循语义化版本（SemVer）。研究性 API 在 1.0 前可能变化，破坏性变更会写入此处。
 
+## [0.3.4] — 2026-11-13
+
+SQLite 状态后端：不再只把记忆条目放进 SQLite、同时把全部记忆重复写进 JSON。
+
+### Added
+
+- `.sqlite` / `.sqlite3` / `.db` 状态路径自动启用 `SQLiteMemoryStore` 状态后端。
+- `memories`、`edges`、`meta.engine_state` 分表；`PRAGMA user_version` 记录 schema v1。
+- `python -m thymos migrate old.json new.sqlite`：源 JSON 不改，目标已有状态时拒绝覆盖。
+- `SQLiteMemoryStore.flush()`：持久化 review/遗忘/prune 后的对象变更。
+- 并发写入、schema 版本、状态版本、迁移、round-trip 测试。
+
+### Changed
+
+- `Thymos.save()` 在 SQLite 模式下先 flush 记忆，再写非记忆状态；`engine_state.memory` 固定为空。
+- 状态版本高于当前 `Thymos.VERSION` 时明确报错，不再静默读取。
+- 版本号 0.3.3 → 0.3.4；测试总数 236 → 247。
+
+### Not solved
+
+- 检索仍是内存线性扫描，SQLite 不是向量索引；
+- 没有多进程租约、加密、保留期和在线备份；
+- 当前只有 schema v1，尚未提供真实的 v1→v2 迁移样例。
+
 ## [0.3.3] — 2026-11-13
 
 评价落点修复版：解决“LLM 给了 `desirability=-0.3`，最终标签仍是 neutral”的可复现路径，并增加只读调试端点。

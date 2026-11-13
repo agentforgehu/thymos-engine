@@ -71,6 +71,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("snapshot", help="打印当前完整状态 JSON")
 
+    migrate = sub.add_parser("migrate", help="将旧 JSON 状态迁移到 SQLite")
+    migrate.add_argument("source", help="旧 .json 状态文件")
+    migrate.add_argument("target", help="新的 .sqlite/.db 状态文件")
+
     serve = sub.add_parser("serve", help="启动本地可视化面板")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8787)
@@ -119,6 +123,18 @@ def cmd_init(args: argparse.Namespace) -> int:
     print(f"已创建 {args.state}")
     print(f"画像：{profile.name} @ {profile.location_name}，起床 {profile.wake_hour:g} 点")
     print("下一步：python -m thymos demo 或 python -m thymos serve")
+    return 0
+
+
+def cmd_migrate(args: argparse.Namespace) -> int:
+    from .sqlite_store import migrate_json
+
+    store = migrate_json(args.source, args.target)
+    try:
+        print(f"已迁移 {args.source} -> {args.target}（schema v{store.schema_version}）")
+        print(f"记忆条目：{len(store)}")
+    finally:
+        store.close()
     return 0
 
 
@@ -319,6 +335,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_consolidate(args)
     if args.command == "snapshot":
         return cmd_snapshot(args)
+    if args.command == "migrate":
+        return cmd_migrate(args)
     if args.command == "serve":
         return cmd_serve(args)
     parser.print_help()

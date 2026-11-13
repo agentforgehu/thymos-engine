@@ -33,7 +33,7 @@
 
 | 阶段 | 目标 | 时间 | 退出条件 |
 |---|---|---|---|
-| **P0 本地实验** | 核心引擎、CLI、面板、测试、实验 | 已完成 | 236 项测试通过；6 个实验可复现 |
+| **P0 本地实验** | 核心引擎、CLI、面板、测试、实验 | 已完成 | 247 项测试通过；6 个实验可复现 |
 | **P1 科学验证** | 参数恢复、敏感性、消融、真实日志 | 4–8 周 | 关键参数可识别；消融结果公开 |
 | **P2 开源发布** | 仓库、CI、文档、示例、v0.1.0 | 2–4 周 | 外部用户能在 10 分钟内跑通 |
 | **P3 集成** | LLM/Agent 适配、SQLite、真实嵌入 | 6–10 周 | 一个真实 Agent 连续运行 7 天 |
@@ -52,7 +52,7 @@
 - [x] JSON 持久化、原子写入、状态快照
 - [x] CLI：`init / demo / perceive / recall / tick / consolidate / snapshot / serve`
 - [x] 零依赖 HTTP API + 可视化面板
-- [x] 236 项测试
+- [x] 247 项测试
 - [x] 5 个可复现实验 + 图表 + 指标 JSON
 
 ### 已知缺口
@@ -119,6 +119,17 @@
 - [x] 测试总数 236
 
 **仍未关闭：** DeepSeek/本地模型真实载荷的重复轮一致性、模型输出字段缺失的告警、人工盲评。详见 [LLM_APPRAISAL.md](LLM_APPRAISAL.md) 5.1 与 [GAPS.md](GAPS.md) 第 10 节。
+
+### 0.3.4 SQLite 状态后端（2026-11-13）
+
+- [x] `.sqlite` / `.db` 路径自动启用记忆 + 引擎状态后端
+- [x] `memories` / `edges` / `meta.engine_state` 分表；schema v1
+- [x] JSON → SQLite 迁移；源文件不改，目标已有状态时拒绝覆盖
+- [x] `flush()` 回写 review/遗忘/prune 变更；WAL checkpoint
+- [x] 并发写入、schema/状态版本、迁移与 round-trip 回归
+- [x] 测试总数 247
+
+**仍未关闭：** 检索仍是内存扫描；没有崩溃注入、多进程写者协议、加密和在线备份。详见 [SQLITE_STATE.md](SQLITE_STATE.md) 与 [GAPS.md](GAPS.md) 第 11 节。
 
 ---
 
