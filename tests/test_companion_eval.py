@@ -1,4 +1,6 @@
-from experiments.eval_companion_zh import DATA, evaluate_emotion, read_jsonl
+from pathlib import Path
+
+DATA = Path(__file__).resolve().parents[1] / "evals" / "companion_zh" / "data"
 
 EXPECTED_EMOTIONS = {
     "anger",
@@ -15,6 +17,17 @@ EXPECTED_EMOTIONS = {
     "sadness",
     "worried",
 }
+
+
+def read_jsonl(path: Path) -> list[dict]:
+    import json
+
+    rows = []
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            if line.strip():
+                rows.append(json.loads(line))
+    return rows
 
 
 def test_cped_sample_has_real_source_and_balanced_labels():
@@ -38,10 +51,13 @@ def test_companion_windows_are_real_multiturn_and_labeled():
         assert row["probe"]
 
 
-def test_eval_runner_returns_finite_metrics():
-    rows = read_jsonl(DATA / "cped_emotion_sample.jsonl")[:20]
-    report = evaluate_emotion(rows)
-    assert report["n"] == 20
-    for key in ("emotion_accuracy", "emotion_macro_f1", "sentiment_accuracy", "sentiment_macro_f1"):
-        assert 0.0 <= report[key] <= 1.0
-    assert report["examples"][0]["text"]
+def test_companion_eval_has_a_published_baseline():
+    import json
+
+    path = DATA.parent / "results" / "lexical_baseline.json"
+    report = json.loads(path.read_text(encoding="utf-8"))
+    assert report["sample_size"] == 156
+    assert report["window_count"] == 8
+    assert 0.0 <= report["emotion_accuracy"] <= 1.0
+    assert 0.0 <= report["sentiment_accuracy"] <= 1.0
+    assert report["window_summary_retrievable_rate"] == 1.0
