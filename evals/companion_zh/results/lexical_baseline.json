@@ -1,0 +1,31 @@
+{
+  "dataset": "CPED test split (public; see evals/companion_zh/NOTICE.md)",
+  "sample_size": 156,
+  "window_count": 8,
+  "emotion_accuracy": 0.0962,
+  "emotion_macro_f1": 0.0482,
+  "sentiment_accuracy": 0.1731,
+  "sentiment_macro_f1": 0.1999,
+  "window_majority_sentiment_accuracy": 0.5,
+  "window_summary_retrievable_rate": 1.0,
+  "gold_emotion_counts": {
+    "anger": 12,
+    "astonished": 12,
+    "depress": 12,
+    "disgust": 12,
+    "fear": 12,
+    "grateful": 12,
+    "happy": 12,
+    "negative-other": 12,
+    "neutral": 12,
+    "positive-other": 12,
+    "relaxed": 12,
+    "sadness": 12,
+    "worried": 12
+  },
+  "pred_sentiment_counts": {
+    "neutral": 133,
+    "positive": 19,
+    "negative": 4
+  }
+}

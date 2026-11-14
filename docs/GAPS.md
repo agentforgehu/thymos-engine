@@ -304,4 +304,32 @@
 
 ### 12.3 结论
 
-0.3.5 关闭的是**“每轮全存、重复堆积、排序被显著度翻转、旧事实回写”**这四类工程问题，不是“中文记忆已经做好”。真实 100 轮（本地 35B + bge-small）100/100 上下文/回答探针、0 模型错误；这只证明系统在作者构造的长场景里能稳定运行，不证明真实用户会满意。当前测试总数 **263 项**。
+0.3.5 关闭的是**“每轮全存、重复堆积、排序被显著度翻转、旧事实回写”**这四类工程问题，不是“中文记忆已经做好”。真实 100 轮（本地 35B + bge-small）100/100 上下文/回答探针、0 模型错误；这只证明系统在作者构造的长场景里能稳定运行，不证明真实用户会满意。
+
+## 13. 0.4.0 行为出口、事件流与真实中文评估（2026-11-14）
+
+完整接入说明见 [BEHAVIOR_STREAM.md](BEHAVIOR_STREAM.md)，评估集与基线见 [evals/companion_zh/README.md](../evals/companion_zh/README.md)。
+
+### 13.1 已关闭
+
+| 问题 | 根因 | 修复 | 证据 |
+|---|---|---|---|
+| 情绪只能落到固定行为，宿主每家都要重写 | 没有行为出口抽象 | `BehaviorMapper` 协议 + `DefaultBehaviorMapper`；`plan()["behavior"]` 审计 | `tests/test_behavior.py` |
+| 一次只吃一条消息，无法形成“这一晚” | 没有窗口级摄入与摘要 | `Event` / `observe_stream` / `WindowSummary`；摘要作为 semantic memory 可检索 | `tests/test_stream.py` |
+| 评估全是作者构造案例 | 没有外部中文数据 | CPED test split 156 条真实语句 + 8 个真实多轮窗口；固定来源、许可与采样规则 | `evals/companion_zh/`、`tests/test_companion_eval.py` |
+| 情绪/行为改动没有真实数据对照 | 没有公开基线 | 规则基线：emotion accuracy 0.0962、sentiment accuracy 0.1731；窗口摘要检索 8/8 | `evals/companion_zh/results/lexical_baseline.json` |
+
+### 13.2 仍开放
+
+| 级别 | 问题 | 现状 | 下一步 |
+|---|---|---|---|
+| P0 | CPED 不是陪伴产品数据 | 电视对白、无真实用户、无陪伴质量标签 | 用授权真实会话做人工盲评；CPED 只作为真实中文压力集 |
+| P0 | 规则评价在 CPED 上很弱 | emotion accuracy 9.62%、sentiment 17.31% | 比较 LLM appraiser / 中文预训练分类器 / 人工标注；不要在测试集上调词表 |
+| P1 | 窗口摘要仍是规则统计 | 不做 LLM 总结；话题依赖 tags | 可选 LLM 摘要；保留原始事件与审计 |
+| P1 | `observe_stream` 是批处理，不是异步队列 | 宿主需在窗口结束时调用或定期 flush | 增量 session 对象、背压、乱序/迟到事件策略 |
+| P1 | 行为映射不是安全策略 | 默认只给 tone/length/initiative 建议 | 接入宿主危机识别、人工接管与政策约束 |
+| P2 | 摘要标签没有人工一致性 | 当前只用 CPED 派生标签 | 按 `annotation_protocol.md` 做双人标注与 Krippendorff's alpha |
+
+### 13.3 结论
+
+0.4.0 把“情绪之后做什么”“一晚上的事件怎么合起来”“去哪里找不是自己写的评估数据”这三件事做成了接口和资产。它**没有**证明陪伴效果变好；真实 CPED 基线的低分反而说明词典评价仍是主要瓶颈。当前测试总数 **278 项**。

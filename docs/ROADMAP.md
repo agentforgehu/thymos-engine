@@ -52,7 +52,7 @@
 - [x] JSON 持久化、原子写入、状态快照
 - [x] CLI：`init / demo / perceive / recall / tick / consolidate / snapshot / serve`
 - [x] 零依赖 HTTP API + 可视化面板
-- [x] 263 项测试
+- [x] 278 项测试
 - [x] 5 个可复现实验 + 图表 + 指标 JSON
 
 ### 已知缺口
@@ -144,6 +144,17 @@
 - [x] 测试总数 263
 
 **仍未关闭：** 中文召回仍不是生产级；写路径阈值未做人工标注；100 轮是作者构造场景；检索仍是内存扫描。详见 [WRITE_PATH.md](WRITE_PATH.md)、[LONGRUN_100.md](LONGRUN_100.md) 与 [GAPS.md](GAPS.md) 第 12 节。
+
+### 0.4.0 行为出口、事件流与真实中文评估（2026-11-14）
+
+- [x] `BehaviorMapper` 协议与 `DefaultBehaviorMapper`；`plan()["behavior"]` 可审计
+- [x] `Event` / `observe_stream` / `WindowSummary`：一晚上的事件、逐条记忆、窗口摘要
+- [x] 摘要作为 semantic memory 可被 `context()` 检索
+- [x] CPED test split 156 条真实语句 + 8 个真实多轮窗口，固定来源/许可/采样
+- [x] 规则基线：emotion accuracy 0.0962、sentiment accuracy 0.1731；窗口摘要检索 8/8
+- [x] 测试总数 278
+
+**仍未关闭：** CPED 不是陪伴用户数据；规则评价在真实对白上很弱；窗口摘要是规则统计；`observe_stream` 是批处理；行为映射不是安全策略。详见 [BEHAVIOR_STREAM.md](BEHAVIOR_STREAM.md) 与 [GAPS.md](GAPS.md) 第 13 节。
 
 ---
 

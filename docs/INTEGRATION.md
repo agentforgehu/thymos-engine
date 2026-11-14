@@ -60,6 +60,50 @@ print(memory.mind.last_write)  # store / merge / reinforce / skip + reason
 
 精确重复跨会话去重；语义合并只在时间窗口、相似度和数字/日期不冲突时发生。合并/去重不会跳过情绪更新：这一轮仍然会改变心境、压力和内分泌。完整边界见 [WRITE_PATH.md](WRITE_PATH.md)。
 
+### 1.0.2 行为出口（0.4.0）
+
+情绪状态不直接等于回复策略。宿主实现 `BehaviorMapper`，把当前 affect、意图和情绪标签映射成自己的品牌行为：
+
+```python
+from thymos import AgentMemory, BehaviorDirective
+
+class MyMapper:
+    def map(self, affect, *, intent="mixed", emotion=None, context=None):
+        if intent in {"factual", "technical"}:
+            return BehaviorDirective(tone="neutral", verbosity="short",
+                                     suggested_action="answer_directly")
+        if affect.stress >= 0.75:
+            return BehaviorDirective(tone="gentle", verbosity="short",
+                                     initiative="reflect", boundary="deescalate",
+                                     suggested_action="acknowledge_then_ask")
+        return BehaviorDirective(tone="warm", verbosity="medium",
+                                 initiative="ask", suggested_action="ask_one_follow_up")
+
+memory = AgentMemory(".thymos/agent.sqlite", behavior_mapper=MyMapper())
+directive = memory.behavior("今晚有点累")
+print(directive.to_dict())
+```
+
+默认 `DefaultBehaviorMapper` 只是产品安全先验；它不执行危机干预。完整规则见 [BEHAVIOR_STREAM.md](BEHAVIOR_STREAM.md)。
+
+### 1.0.3 窗口事件流（0.4.0）
+
+`observe_stream()` 用于“这一晚”而不是单条消息。它逐条走写路径，窗口结束生成一条 semantic 摘要记忆：
+
+```python
+from thymos import Event
+
+window = memory.observe_stream([
+    Event("今天加班到九点，累死了", at=1770000000, tags=["工作"]),
+    Event("领导还临时改需求，真的很烦", at=1770001800, tags=["工作"]),
+    Event("不过同事帮我买了饭", at=1770003600, tags=["同事"]),
+], window="今晚")
+print(window.summary)
+print(memory.context("今晚怎么样", max_chars=800))
+```
+
+`assistant` 事件只进窗口记录，不当成用户事实。它是批处理 API，不是异步消息队列；宿主应在窗口结束时调用，或定期 flush 成多个窗口。
+
 ### 1.0 计划与审计（0.3.0）
 
 `context()` 默认已走控制平面；如果要在日志里解释“为什么这样选”，用 `plan()`：

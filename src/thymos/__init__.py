@@ -26,6 +26,7 @@ a seed, so experiments are reproducible.
 from .config import Profile, ThymosConfig
 from .backends import MemoryBackend
 from .appraisal import explain_appraisal
+from .behavior import BehaviorDirective, BehaviorMapper, DefaultBehaviorMapper
 from .control import AuditTrace, ContextPlan, MemoryController, OperatorReport
 from .engine import Thymos
 from .agent import AgentMemory, estimate_importance
@@ -35,10 +36,11 @@ from .facts import Fact, FactStore
 from .policy import AffectDecision, AffectPolicy, QueryIntent, classify_intent
 from .safety import redact_pii, sanitize_memory_text
 from .sqlite_store import SQLiteMemoryStore
+from .stream import Event, WindowSummary, build_window_summary, normalize_events
 from .tokens import estimate_tokens, trim_to_tokens
 from .types import Appraisal, Emotion, MemoryItem, RetrievalResult
 
-__version__ = "0.3.5"
+__version__ = "0.4.0"
 
 __all__ = [
     "Thymos",
@@ -53,6 +55,13 @@ __all__ = [
     "AffectPolicy",
     "classify_intent",
     "estimate_importance",
+    "BehaviorDirective",
+    "BehaviorMapper",
+    "DefaultBehaviorMapper",
+    "Event",
+    "WindowSummary",
+    "build_window_summary",
+    "normalize_events",
     "LLMAppraiser",
     "explain_appraisal",
     "OllamaEmbedder",

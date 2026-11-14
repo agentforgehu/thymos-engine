@@ -6,16 +6,16 @@
 
 A local-first, inspectable memory control plane that couples forgetting curves, appraisal-based affect, endocrine modulation, and real-world environment.
 
-[中文](README.md) · [Product definition (Chinese)](docs/PRODUCT.md) · [Tutorial (Chinese)](docs/TUTORIAL.md) · [MCP (Chinese)](docs/MCP.md) · [P0–P2 upgrade (Chinese)](docs/UPGRADE_P0_P2.md) · [Strategy and landscape (Chinese)](docs/STRATEGY.md) · [Research](docs/RESEARCH.md) · [Design](docs/DESIGN.md) · [Experiments](docs/EXPERIMENTS.md) · [Evaluation (Chinese)](docs/EVALUATION.md) · [Naming](docs/NAMING.md) · [Roadmap](docs/ROADMAP.md) · [Write path (Chinese)](docs/WRITE_PATH.md) · [100-turn test (Chinese)](docs/LONGRUN_100.md) · [Three-fix retest (Chinese)](docs/LOCAL_LLM_FIXES.md) · [Four-fix retest (Chinese)](docs/FACT_EMOTION_FIXES.md)
+[中文](README.md) · [Product definition (Chinese)](docs/PRODUCT.md) · [Tutorial (Chinese)](docs/TUTORIAL.md) · [MCP (Chinese)](docs/MCP.md) · [P0–P2 upgrade (Chinese)](docs/UPGRADE_P0_P2.md) · [Strategy and landscape (Chinese)](docs/STRATEGY.md) · [Research](docs/RESEARCH.md) · [Design](docs/DESIGN.md) · [Experiments](docs/EXPERIMENTS.md) · [Behavior & streams (Chinese)](docs/BEHAVIOR_STREAM.md) · [Chinese companion eval](evals/companion_zh/README.md) · [Evaluation (Chinese)](docs/EVALUATION.md) · [Naming](docs/NAMING.md) · [Roadmap](docs/ROADMAP.md) · [Write path (Chinese)](docs/WRITE_PATH.md) · [100-turn test (Chinese)](docs/LONGRUN_100.md) · [Three-fix retest (Chinese)](docs/LOCAL_LLM_FIXES.md) · [Four-fix retest (Chinese)](docs/FACT_EMOTION_FIXES.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
 ![License](https://img.shields.io/badge/license-MIT-2f855a)
 ![Runtime](https://img.shields.io/badge/runtime-zero--dependency-0f766e)
-![Status](https://img.shields.io/badge/status-v0.3.5%20alpha-f59e0b)
+![Status](https://img.shields.io/badge/status-v0.4.0%20alpha-f59e0b)
 
 </div>
 
-> **Status: v0.3.5, local research sandbox with a control-plane MVP.** This is not a clinically validated model of emotion, and it is not conscious. It is a set of inspectable dynamical hypotheses: what if memory, affect, hormones, sleep and weather shared one clock? 0.3.5 adds an audited write path, a Chinese unigram BM25 channel, a retrieval-ranking fix and a 100-turn local test; 0.3.4 added an optional SQLite state backend and JSON migration; 0.3.3 fixed nested LLM appraisal payloads and the dimension-to-label path, and added a `/api/appraise` debug endpoint. The lexical rules remain the deterministic default and fallback. Query-intent routing, affect gating, four memory operators, hard context budgets and an audit trace remain. It is still not production-grade memory.
+> **Status: v0.4.0, local research sandbox with a control-plane MVP.** This is not a clinically validated model of emotion, and it is not conscious. It is a set of inspectable dynamical hypotheses: what if memory, affect, hormones, sleep and weather shared one clock? 0.4.0 adds a replaceable BehaviorMapper, windowed event streams and a real Chinese CPED evaluation sample; 0.3.5 added an audited write path, a Chinese unigram BM25 channel, a retrieval-ranking fix and a 100-turn local test; 0.3.4 added an optional SQLite state backend and JSON migration; 0.3.3 fixed nested LLM appraisal payloads and the dimension-to-label path, and added a `/api/appraise` debug endpoint. The lexical rules remain the deterministic default and fallback. Query-intent routing, affect gating, four memory operators, hard context budgets and an audit trace remain. It is still not production-grade memory.
 
 ---
 
@@ -121,6 +121,29 @@ Factual and technical queries disable mood congruence and hide the simulated-aff
 supportive queries keep it. The policy is explicit in `src/thymos/policy.py`, and the
 audit is returned by `memory.plan()`, `GET /api/audit`, and MCP `memory_plan`.
 
+## Behavior and windowed events
+
+Affect is not a universal reply policy. A host can replace the default `BehaviorMapper` to own tone, length, initiative and de-escalation:
+
+```python
+from thymos import AgentMemory, BehaviorDirective
+
+class MyMapper:
+    def map(self, affect, *, intent="mixed", emotion=None, context=None):
+        if intent in {"factual", "technical"}:
+            return BehaviorDirective(tone="neutral", verbosity="short",
+                                     suggested_action="answer_directly")
+        return BehaviorDirective(tone="warm", verbosity="medium",
+                                 initiative="ask", suggested_action="ask_one_follow_up")
+
+memory = AgentMemory(".thymos/agent.sqlite", behavior_mapper=MyMapper())
+print(memory.plan("How was tonight?")["behavior"])
+```
+
+`observe_stream()` ingests a timed window, keeps each user event on the normal write path, and stores one retrievable semantic summary for the window. It is batch ingestion, not an async queue. See [docs/BEHAVIOR_STREAM.md](docs/BEHAVIOR_STREAM.md).
+
+The real-data evaluation sample is CPED test split: 156 utterances and 8 windows, with source IDs and an annotation protocol. The lexical baseline is deliberately not tuned: **0.0962** emotion accuracy and **0.1731** sentiment accuracy. See [evals/companion_zh](evals/companion_zh/README.md).
+
 ## What is modelled
 
 | Layer | Mechanism | Implementation |
@@ -162,7 +185,7 @@ These validate **internal consistency**, not human psychology. See [docs/EXPERIM
 | Letta / MemGPT | hierarchical context | context eviction | — | — | — | partial |
 | Generative Agents | memory stream | recency decay | simple | — | — | yes |
 | ALMA / WASABI | — | — | appraisal + PAD | — | — | partial |
-| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **263 tests + reproducible experiments** |
+| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **278 tests + reproducible experiments** |
 
 Thymos does not compete on memory-recall benchmarks. It competes on **dynamical coherence, inspectability and reproducibility**.
 
@@ -172,7 +195,7 @@ Local-first by default. Zero runtime dependencies. Deterministic given a seed an
 
 ## Limitations
 
-The appraisal layer is a dictionary heuristic. Embeddings are hashed n-grams, not semantic vectors. Endocrine values are relative units, not blood concentrations. Most parameters are engineering estimates, not fitted constants. There has been no user study. Do not use it to score real people.
+The appraisal layer is a dictionary heuristic. Embeddings are hashed n-grams, not semantic vectors. Endocrine values are relative units, not blood concentrations. Most parameters are engineering estimates, not fitted constants. There has been no user study. The CPED sample is real Chinese TV dialogue, not companion-product data; its low lexical baseline is reported rather than hidden. Do not use it to score real people.
 
 ## License
 

@@ -17,15 +17,18 @@ deterministic state and exposes ``memory.mind`` when you need full control.
 from __future__ import annotations
 
 import re
-from typing import Any, Callable
+from typing import Any, Callable, Iterable, Mapping
 
 from .appraisal import appraise, estimate_appraisal
+from .behavior import BehaviorDirective, BehaviorMapper, DefaultBehaviorMapper
 from .config import Profile, ThymosConfig
 from .embedding import Embedder
 from .engine import Thymos
 from .facts import Fact
 from .mathx import clamp
 from .memory import MemoryStore
+from .policy import classify_intent
+from .stream import Event, WindowSummary, build_window_summary, normalize_events
 from .types import Appraisal, MemoryItem, RetrievalResult
 from .write_path import (
     find_merge_candidate,
@@ -129,6 +132,7 @@ class AgentMemory:
         embedder: Embedder | None = None,
         store: MemoryStore | None = None,
         appraiser: Callable[[str], Appraisal] | None = None,
+        behavior_mapper: BehaviorMapper | None = None,
     ) -> None:
         cfg = config or ThymosConfig(offline=offline)
         self.mind = Thymos(
@@ -140,6 +144,9 @@ class AgentMemory:
             store=store,
         )
         self.appraiser = appraiser
+        self.behavior_mapper = behavior_mapper or DefaultBehaviorMapper()
+        self.last_window: WindowSummary | None = None
+        self.last_behavior: dict[str, Any] | None = None
 
     # ------------------------------------------------------------------ read
     def recall(
@@ -199,7 +206,7 @@ class AgentMemory:
         block, ``intent`` and ``affect`` explain the routing decision, and
         ``operators`` explains which memory representations were consulted.
         """
-        return self.mind.plan_context(
+        plan = self.mind.plan_context(
             user_text,
             top_k=top_k,
             min_score=min_score,
@@ -207,10 +214,48 @@ class AgentMemory:
             max_chars=max_chars,
             max_tokens=max_tokens,
         ).to_dict()
+        directive = self.behavior(
+            user_text,
+            intent=plan["intent"]["label"],
+            context={"query": user_text},
+        )
+        plan["behavior"] = directive.to_dict()
+        self.last_behavior = plan["behavior"]
+        return plan
+
+    def behavior(
+        self,
+        user_text: str = "",
+        *,
+        intent: str | None = None,
+        emotion: str | None = None,
+        context: Mapping[str, Any] | None = None,
+    ) -> BehaviorDirective:
+        """Map current affect to a host-facing behavioral suggestion.
+
+        This is the extension point for a product's persona.  Pass a custom
+        ``behavior_mapper`` to :class:`AgentMemory` to replace the default
+        policy without touching the dynamical core.
+        """
+        if intent is None:
+            intent = classify_intent(user_text).label
+        if emotion is None:
+            emotion = self.mind.affect.state.dominant_emotion
+        return self.behavior_mapper.map(
+            self.mind.affect.state,
+            intent=intent,
+            emotion=emotion,
+            context=context,
+        )
 
     def snapshot(self) -> dict[str, Any]:
         """Return the full inspectable state (affect, endocrine, memory stats)."""
-        return self.mind.snapshot()
+        data = self.mind.snapshot()
+        data["last_window"] = (
+            self.last_window.to_dict() if self.last_window is not None else None
+        )
+        data["last_behavior"] = self.last_behavior
+        return data
 
     def facts(self, *, active_only: bool = True) -> list[Fact]:
         """List facts for a host-side correction/management UI."""
@@ -421,6 +466,127 @@ class AgentMemory:
                 confidence=float(getattr(candidate, "confidence", 0.8)),
             )
         return item
+
+    def observe_stream(
+        self,
+        events: Iterable[Event | Mapping[str, Any] | str],
+        *,
+        window: str = "session",
+        summary: bool = True,
+        min_importance: float = 0.35,
+        tags: list[str] | None = None,
+        step_seconds: float = 60.0,
+    ) -> WindowSummary:
+        """Ingest a continuous event stream and build one window summary.
+
+        Each ``user`` event goes through the normal :meth:`observe` write path,
+        so facts, deduplication and affect still work exactly as they do for a
+        single turn.  ``assistant`` and ``system`` events are recorded in the
+        window but are not stored as user memories.
+
+        Timestamps are absolute Unix seconds.  Missing timestamps are assigned
+        monotonically with ``step_seconds``.  A timestamp earlier than the
+        current engine clock is clamped forward rather than rewinding affect.
+        The summary is stored as a semantic memory tagged ``window`` so a later
+        "今晚怎么样" query can retrieve it without replaying every turn.
+        """
+        normalized = normalize_events(
+            events, now=self.mind.now, step_seconds=step_seconds
+        )
+        if not normalized:
+            raise ValueError("events must not be empty")
+        base_tags = [str(tag).strip() for tag in (tags or []) if str(tag).strip()]
+        records: list[dict[str, Any]] = []
+        event_memory_ids: list[str] = []
+
+        for event in normalized:
+            if event.at is not None and event.at > self.mind.now:
+                self.mind.tick(event.at - self.mind.now)
+            event_tags = list(
+                dict.fromkeys(base_tags + list(event.tags) + [window])
+            )
+            item: MemoryItem | None = None
+            if event.role == "user":
+                item = self.observe(
+                    event.text,
+                    importance=event.importance,
+                    tags=event_tags,
+                    min_importance=min_importance,
+                    appraisal=event.appraisal,
+                )
+                if item is not None:
+                    event_memory_ids.append(item.id)
+            state = self.mind.affect.state
+            records.append(
+                {
+                    "at": float(event.at or self.mind.now),
+                    "role": event.role,
+                    "text": event.text,
+                    "label": state.dominant_emotion,
+                    "valence": state.valence,
+                    "mood": state.mood_valence,
+                    "stress": state.stress,
+                    "tags": event_tags,
+                    "memory_id": item.id if item is not None else None,
+                }
+            )
+
+        start_at = float(normalized[0].at or self.mind.now)
+        end_at = float(normalized[-1].at or self.mind.now)
+        window_summary = build_window_summary(
+            window,
+            records,
+            start_at=start_at,
+            end_at=end_at,
+            timezone_name=self.mind.profile.timezone,
+        )
+
+        if summary and window_summary.user_turns >= 2:
+            content = window_summary.summary
+            embedding = self.mind.embedder(content)
+            self.mind._ensure_embedding_dim(len(embedding))
+            summary_item = MemoryItem(
+                content=content,
+                kind="semantic",
+                tags=list(
+                    dict.fromkeys(
+                        ["window", window] + list(window_summary.topics)
+                    )
+                ),
+                embedding=embedding,
+                context={
+                    "window": window,
+                    "start_at": start_at,
+                    "end_at": end_at,
+                    "event_count": window_summary.event_count,
+                    "memory_ids": list(event_memory_ids),
+                },
+                created_at=end_at,
+                last_access=end_at,
+                access_times=[end_at],
+                stability=1.2,
+                difficulty=0.4,
+                valence=window_summary.valence_mean,
+                arousal=0.25,
+                salience=0.75,
+                source="stream",
+            )
+            self.mind.store.add(summary_item)
+            for memory_id in event_memory_ids:
+                self.mind.store.link(summary_item.id, memory_id, 0.80)
+            window_summary.memory_id = summary_item.id
+            self.mind._log(
+                "window_summary",
+                {
+                    "window": window,
+                    "memory_id": summary_item.id,
+                    "event_count": window_summary.event_count,
+                    "user_turns": window_summary.user_turns,
+                },
+            )
+
+        self.last_window = window_summary
+        return window_summary
 
     def end_session(self, hours: float = 7.5) -> dict[str, Any]:
         """Simulate sleep consolidation and persist the state."""

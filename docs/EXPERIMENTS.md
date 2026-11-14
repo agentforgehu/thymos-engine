@@ -1,6 +1,6 @@
 # 实验报告：五个可复现实验
 
-> 版本：0.3.5（五个主实验自 0.1.0 起未变；附录 A 为 0.1.2 新增；0.3.1 增加口语情绪/心境本地长测，0.3.2 增加规则 vs LLM 评价探针，见 [LANGUAGE_MOOD_AUDIT.md](LANGUAGE_MOOD_AUDIT.md) 与 [LLM_APPRAISAL.md](LLM_APPRAISAL.md)）
+> 版本：0.4.0（五个主实验自 0.1.0 起未变；附录 A 为 0.1.2 新增；0.3.1 增加口语情绪/心境本地长测，0.3.2 增加规则 vs LLM 评价探针，见 [LANGUAGE_MOOD_AUDIT.md](LANGUAGE_MOOD_AUDIT.md) 与 [LLM_APPRAISAL.md](LLM_APPRAISAL.md)）
 >
 > 运行：`python experiments/run_experiments.py`
 >
@@ -336,3 +336,22 @@ python experiments/retrieval_benchmark.py --embedding ollama --model bge-m3
 真实 35B + bge-small 的 100 轮结果、失败项与延迟见 [LONGRUN_100.md](LONGRUN_100.md)。这不是“效果很好”的证明；它是稳定性与可复现性的证据。
 
 最终真实 100 轮：上下文/回答探针 **100/100**、0 模型错误、66 条记忆、平均 **5.27 s/轮**、心境跨度 **0.3712**、压力峰值 **0.2671**、平均上下文 **311.3 字符**。第一次跑到 99/100，失败点是宠物名抽取缺口，补规则后重跑通过。
+
+## 附录 C：CPED 真实中文陪伴评估集
+
+`evals/companion_zh/` 从 CPED test split 分层抽取 156 条真实中文语句和 8 个真实多轮窗口。它替代“只用作者构造案例”的自证，但**不**替代真实用户研究。
+
+```bash
+PYTHONPATH=src python experiments/eval_companion_zh.py
+```
+
+| 指标 | 规则基线 |
+|---|---:|
+| emotion accuracy | 0.0962 |
+| emotion macro-F1 | 0.0482 |
+| sentiment accuracy | 0.1731 |
+| sentiment macro-F1 | 0.1999 |
+| 窗口摘要 `context()` 可检索 | 8 / 8 |
+| 窗口多数情绪方向 accuracy | 0.50（8 个窗口） |
+
+低分是结果，不是 bug：规则评价擅长显式线索，不擅长电视对白里的省略、反讽和语境。下一步应比较 LLM appraiser 与人工标注，而不是在测试集上改词表。

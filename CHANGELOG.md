@@ -2,6 +2,35 @@
 
 本项目遵循语义化版本（SemVer）。研究性 API 在 1.0 前可能变化，破坏性变更会写入此处。
 
+## [0.4.0] — 2026-11-14
+
+行为出口、窗口事件流与真实中文评估：情绪不再直接绑死一种回复方式，一次对话不再只能吃一条消息，评估不再只靠作者构造案例。
+
+### Added
+
+- `behavior.py`：`BehaviorMapper` 协议、`BehaviorDirective` 与保守的 `DefaultBehaviorMapper`；`AgentMemory.behavior()` 和 `plan()["behavior"]` 可审计。
+- `stream.py`：`Event`、`WindowSummary`、`normalize_events()`、`build_window_summary()`；时间戳单调补齐、用户/助手角色区分。
+- `AgentMemory.observe_stream()`：逐条走写路径，窗口结束生成可检索的 semantic 摘要记忆，保留原始事件关联。
+- `evals/companion_zh/`：CPED test split 156 条真实中文语句 + 8 个真实多轮窗口；固定来源、许可、采样规则与人工标注协议。
+- `experiments/eval_companion_zh.py`：真实数据上的 emotion/sentiment 基线与窗口摘要检索检查。
+- `tests/test_behavior.py`、`tests/test_stream.py`、`tests/test_companion_eval.py`。
+
+### Changed
+
+- 版本号 0.3.5 → 0.4.0；测试总数 263 → 278。
+- README、集成指南、实验文档与路线图加入行为/事件流/评估集入口。
+
+### Evidence
+
+- CPED 156 条：emotion accuracy **0.0962**、emotion macro-F1 **0.0482**、sentiment accuracy **0.1731**、sentiment macro-F1 **0.1999**。
+- 8 个真实窗口：摘要 `context()` 可检索 **8/8**，多数情绪方向 accuracy **0.50**（样本很小）。
+
+### Not solved
+
+- CPED 是电视对白，不是陪伴用户数据，也没有陪伴质量人工评分。
+- 规则评价在真实对白上仍很弱；不能在 CPED 测试集上调词表再报告提升。
+- `observe_stream` 是窗口批处理，不是异步队列；行为映射不是安全策略。
+
 ## [0.3.5] — 2026-11-13
 
 写路径与长程稳定性：从“每轮都写”改成可审计的准入/合并，并修复检索排序被显著度翻转的问题。
