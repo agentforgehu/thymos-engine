@@ -338,7 +338,7 @@ python examples/llm_chat.py --demo --provider ollama --model qwen2.5:7b
 | Letta / MemGPT | 分层上下文 + 自编辑 | 上下文淘汰 | — | — | — | 部分 |
 | Generative Agents | memory stream | 近因衰减 | 简单 | — | — | 是 |
 | ALMA / WASABI | — | — | 评价 + PAD | — | — | 部分 |
-| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，278 项测试 + 可复现实验** |
+| **Thymos** | **痕迹 + 关联图 + 图式 + 控制平面** | **FSRS 曲线** | **快情绪 + 慢心境 + 查询门控** | **8 变量 HPA** | **天气/光照/季节** | **是，289 项测试 + 可复现实验** |
 
 Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动力学是否自洽、参数是否可解释、行为是否可复现**。如果你要的是“最高召回率”，请用专用记忆系统；如果你要的是“一个会遗忘、会受影响、能解释自己为什么想起这件事的 Agent 内核”，Thymos 是一个可改造的起点。
 
@@ -349,6 +349,8 @@ Thymos 不追求在 LoCoMo 之类的记忆基准上刷分。它关心的是**动
 记忆命中率、情绪词命中率都不能证明业务提升。正确做法是**同一个 LLM、同一套 prompt、同样的 token 与延迟预算，只换记忆层**，做任务级反事实比较：客服看首次解决率（FCR）与 7/30 天重复 contact，陪伴型看“感知被记得”和用户福祉，留存只能当次指标。先用 100–200 个历史多会话案例做离线回放，再做按客户/用户随机分组的线上 A/B。
 
 完整协议、样本量计算、对照组设计和 go/no-go 标准见 [docs/EVALUATION.md](docs/EVALUATION.md)。
+
+回归测试不再只靠模板：`tests/test_real_dialogue_regression.py` 默认重放 CPED test split 的 **8 段真实中文多轮对话**，检查摄入、窗口摘要、`context()` 检索、SQLite 重载和确定性；另有 156 条真实语句过一遍评价管线，确保真实输入不会崩。单元测试里的合成句仍然保留，因为它们负责边界条件，不负责证明“像真实对话”。要换成你自己的真实会话，设置 `THYMOS_REAL_DIALOGUE_FIXTURE`，格式见 [tests/fixtures/README.md](tests/fixtures/README.md)。
 
 仓库带一个最小回放骨架 [`experiments/replay_harness.py`](experiments/replay_harness.py)：同一批多会话 case 分别跑无记忆、全量 transcript、摘要、向量 RAG、Thymos，输出成功/假记忆标记、prompt 字符数和延迟。先用 `--llm mock` 验证管线，再接真实模型。
 
@@ -378,6 +380,7 @@ python experiments/replay_harness.py --llm mock
 | 写路径准入 | 100 轮离线：67 条记忆（0.67/轮）、31 skip、2 reinforce；事实探针上下文 **100/100** |
 | 100 轮真实模型 | 本地 35B + bge-small：**100/100** 上下文/回答探针、0 模型错误；66 条记忆、平均 **5.27 s/轮**、心境跨度 **0.3712**、压力峰值 **0.2671**（见 [LONGRUN_100.md](docs/LONGRUN_100.md)） |
 | 中文陪伴评估（真实 CPED） | 156 条 test split：规则 emotion accuracy **0.0962** / macro-F1 **0.0482**；sentiment accuracy **0.1731** / macro-F1 **0.1999**；8 个真实窗口摘要可检索 **8/8**（见 [companion_zh](evals/companion_zh/README.md)） |
+| 真实对话回归 | 8 段 CPED 真实窗口重放、SQLite 重载、确定性、156 条真实语句评价：**11/11**（见 [fixtures 说明](tests/fixtures/README.md)） |
 | 小上下文记忆 | 900/600 字符预算、50 轮：Thymos **16/16**；最近对话基线 **7/16**（见 [BUDGET_CONTEXT.md](docs/BUDGET_CONTEXT.md)） |
 | 混合查询门控 | 65 轮/27 探针 **27/27**；混合意图 **8/8**；6 查询×4 门控 **24/24**；状态块 +70–95 字符，事实召回不变（见 [LOCAL_LLM_MIXED_GATE_TEST.md](docs/LOCAL_LLM_MIXED_GATE_TEST.md)） |
 | 三项体验修复 | 65 轮：整体 **96.3%**、混合意图 **100%**、0 旧事实污染；`anticipation` 从 28/30 降到 6/65；压力峰值 **0.196**；事实块占上下文 **10–30%**（见 [LOCAL_LLM_FIXES.md](docs/LOCAL_LLM_FIXES.md)） |
@@ -427,7 +430,7 @@ python -m thymos demo
 | 宠物位置 | `我把猫豆豆送回恩施给爸妈养了` | `pet_location=恩施` |
 | 作息 / 咖啡 | `晚上十一点前睡` / `最近十二点睡` / `咖啡不加糖` | `sleep=十一点前` / `sleep=十二点` / `coffee_sugar=不加糖` |
 
-没有命中的句子不会凭空生成事实；需要更高覆盖率时，用 `LLMFactExtractor`（见 [docs/INTEGRATION.md](docs/INTEGRATION.md)）把模型抽取结果写入同一个 `FactStore`。句式覆盖与边界会随测试扩充，当前 278 项测试中有专门的中文事实回归。
+没有命中的句子不会凭空生成事实；需要更高覆盖率时，用 `LLMFactExtractor`（见 [docs/INTEGRATION.md](docs/INTEGRATION.md)）把模型抽取结果写入同一个 `FactStore`。句式覆盖与边界会随测试扩充，当前 289 项测试中有专门的中文事实回归。
 
 ---
 
@@ -492,7 +495,7 @@ src/thymos/
   cli.py          命令行
 experiments/      实验 + 检索基线 + 回放 harness + held-out 评测
 evals/companion_zh/  CPED 真实中文评估集、标注协议与基线结果
-tests/             278 项测试
+tests/             289 项测试
 docs/             教程、研究、设计、实验、命名、路线图
 ```
 
@@ -508,7 +511,7 @@ docs/             教程、研究、设计、实验、命名、路线图
 
 ## 路线图
 
-- **v0.4.0（当前）** 可替换 `BehaviorMapper`、`observe_stream` 窗口事件流、CPED 真实中文评估集；278 项测试。
+- **v0.4.0（当前）** 可替换 `BehaviorMapper`、`observe_stream` 窗口事件流、CPED 真实中文评估集；289 项测试。
 - **v0.3.5** 写路径准入/合并、BM25 单字通道、检索排序修复与 100 轮长测；263 项测试。
 - **v0.3.4** SQLite 状态后端：记忆/边/引擎状态分表、schema 版本、JSON 迁移、并发写入测试；247 项测试。
 - **v0.3.3** 评价落点修复版：嵌套 JSON 解包、强负向不被 novelty 覆盖、`/api/appraise` 调试端点；236 项测试。

@@ -318,6 +318,7 @@
 | 一次只吃一条消息，无法形成“这一晚” | 没有窗口级摄入与摘要 | `Event` / `observe_stream` / `WindowSummary`；摘要作为 semantic memory 可检索 | `tests/test_stream.py` |
 | 评估全是作者构造案例 | 没有外部中文数据 | CPED test split 156 条真实语句 + 8 个真实多轮窗口；固定来源、许可与采样规则 | `evals/companion_zh/`、`tests/test_companion_eval.py` |
 | 情绪/行为改动没有真实数据对照 | 没有公开基线 | 规则基线：emotion accuracy 0.0962、sentiment accuracy 0.1731；窗口摘要检索 8/8 | `evals/companion_zh/results/lexical_baseline.json` |
+| 回归测试全是模板生成 | 测试数据没有真实对话 | 新增 11 项真实对话回归：8 段 CPED 真实窗口重放、SQLite 重载、确定性、156 条真实语句评价 | `tests/test_real_dialogue_regression.py`、`tests/fixtures/README.md` |
 
 ### 13.2 仍开放
 
@@ -332,4 +333,4 @@
 
 ### 13.3 结论
 
-0.4.0 把“情绪之后做什么”“一晚上的事件怎么合起来”“去哪里找不是自己写的评估数据”这三件事做成了接口和资产。它**没有**证明陪伴效果变好；真实 CPED 基线的低分反而说明词典评价仍是主要瓶颈。当前测试总数 **278 项**。
+0.4.0 把“情绪之后做什么”“一晚上的事件怎么合起来”“去哪里找不是自己写的评估数据”这三件事做成了接口和资产。回归测试现在默认重放 CPED 真实窗口，而不是只跑模板；它**没有**证明陪伴效果变好，真实 CPED 基线的低分反而说明词典评价仍是主要瓶颈。当前测试总数 **289 项**，其中 11 项是真实对话回归。

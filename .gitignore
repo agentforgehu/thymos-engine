@@ -22,6 +22,9 @@ htmlcov/
 # Experiments output that is large or regenerated
 experiments/tmp/
 
+# Private real-dialogue regression fixtures (never commit user logs)
+tests/fixtures/private/
+
 # OS / editors
 .DS_Store
 Thumbs.db

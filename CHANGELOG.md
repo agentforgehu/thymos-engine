@@ -14,16 +14,19 @@
 - `evals/companion_zh/`：CPED test split 156 条真实中文语句 + 8 个真实多轮窗口；固定来源、许可、采样规则与人工标注协议。
 - `experiments/eval_companion_zh.py`：真实数据上的 emotion/sentiment 基线与窗口摘要检索检查。
 - `tests/test_behavior.py`、`tests/test_stream.py`、`tests/test_companion_eval.py`。
+- `tests/test_real_dialogue_regression.py`：默认重放 8 段 CPED 真实多轮窗口，检查摄入、摘要检索、SQLite 重载与确定性；156 条真实语句过评价管线。
+- `tests/fixtures/README.md`：支持用 `THYMOS_REAL_DIALOGUE_FIXTURE` 换成自己的真实会话；私有夹具目录已忽略。
 
 ### Changed
 
-- 版本号 0.3.5 → 0.4.0；测试总数 263 → 278。
+- 版本号 0.3.5 → 0.4.0；测试总数 263 → 289（其中 11 项真实对话回归）。
 - README、集成指南、实验文档与路线图加入行为/事件流/评估集入口。
 
 ### Evidence
 
 - CPED 156 条：emotion accuracy **0.0962**、emotion macro-F1 **0.0482**、sentiment accuracy **0.1731**、sentiment macro-F1 **0.1999**。
 - 8 个真实窗口：摘要 `context()` 可检索 **8/8**，多数情绪方向 accuracy **0.50**（样本很小）。
+- 真实对话回归 **11/11**：8 段窗口重放、1 项确定性、1 项 SQLite 重载、1 项 156 条真实语句评价。
 
 ### Not solved
 

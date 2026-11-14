@@ -122,3 +122,22 @@ print(memory.context("今晚怎么样", max_chars=800))
 - 窗口标签来自引擎当前评价，不是人工标注。真实陪伴质量评估见
   [evals/companion_zh/README.md](../evals/companion_zh/README.md)。
 - 行为映射不会自动执行安全策略；高风险场景仍需宿主自己的危机识别与人工接管。
+
+## 4. 真实对话回归
+
+`tests/test_real_dialogue_regression.py` 默认读取
+`evals/companion_zh/data/companion_windows.jsonl`，重放 8 段 CPED 真实中文多轮
+对话，并检查：
+
+- 每个真实窗口都能被 `observe_stream` 摄入；
+- 窗口摘要被写入、能被 `context()` 检索；
+- SQLite 保存/重载后摘要仍在；
+- 同一输入两次运行的动力学与摘要一致（忽略随机记忆 ID）；
+- 156 条真实 CPED 语句都能进入评价管线，不抛异常。
+
+它断言的是**管线不变量**，不是情绪准确率。真实数据上的准确率仍由
+`experiments/eval_companion_zh.py` 单独报告，且不应拿来调词表。
+
+要换成自己的真实会话，设置 `THYMOS_REAL_DIALOGUE_FIXTURE` 指向 JSONL 文件或
+目录；格式与 PII 注意事项见
+[tests/fixtures/README.md](../tests/fixtures/README.md)。

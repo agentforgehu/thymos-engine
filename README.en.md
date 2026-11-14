@@ -144,6 +144,8 @@ print(memory.plan("How was tonight?")["behavior"])
 
 The real-data evaluation sample is CPED test split: 156 utterances and 8 windows, with source IDs and an annotation protocol. The lexical baseline is deliberately not tuned: **0.0962** emotion accuracy and **0.1731** sentiment accuracy. See [evals/companion_zh](evals/companion_zh/README.md).
 
+The default regression suite also replays those 8 real windows through ingestion, summary storage, `context()` retrieval, SQLite reload and determinism; 156 real utterances go through appraisal. These 11 tests assert pipeline invariants, not emotion accuracy. To use your own redacted conversations, set `THYMOS_REAL_DIALOGUE_FIXTURE`; see [tests/fixtures/README.md](tests/fixtures/README.md).
+
 ## What is modelled
 
 | Layer | Mechanism | Implementation |
@@ -185,7 +187,7 @@ These validate **internal consistency**, not human psychology. See [docs/EXPERIM
 | Letta / MemGPT | hierarchical context | context eviction | — | — | — | partial |
 | Generative Agents | memory stream | recency decay | simple | — | — | yes |
 | ALMA / WASABI | — | — | appraisal + PAD | — | — | partial |
-| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **278 tests + reproducible experiments** |
+| **Thymos** | **trace + graph + schema + control plane** | **FSRS curve** | **fast emotion + slow mood + query gate** | **8 pools + HPA** | **weather/light/season** | **289 tests + reproducible experiments** |
 
 Thymos does not compete on memory-recall benchmarks. It competes on **dynamical coherence, inspectability and reproducibility**.
 

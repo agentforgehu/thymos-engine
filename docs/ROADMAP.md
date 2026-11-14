@@ -52,7 +52,7 @@
 - [x] JSON 持久化、原子写入、状态快照
 - [x] CLI：`init / demo / perceive / recall / tick / consolidate / snapshot / serve`
 - [x] 零依赖 HTTP API + 可视化面板
-- [x] 278 项测试
+- [x] 289 项测试
 - [x] 5 个可复现实验 + 图表 + 指标 JSON
 
 ### 已知缺口
@@ -152,7 +152,8 @@
 - [x] 摘要作为 semantic memory 可被 `context()` 检索
 - [x] CPED test split 156 条真实语句 + 8 个真实多轮窗口，固定来源/许可/采样
 - [x] 规则基线：emotion accuracy 0.0962、sentiment accuracy 0.1731；窗口摘要检索 8/8
-- [x] 测试总数 278
+- [x] 11 项真实对话回归：8 段 CPED 窗口重放、SQLite 重载、确定性、156 条真实语句评价
+- [x] 测试总数 289
 
 **仍未关闭：** CPED 不是陪伴用户数据；规则评价在真实对白上很弱；窗口摘要是规则统计；`observe_stream` 是批处理；行为映射不是安全策略。详见 [BEHAVIOR_STREAM.md](BEHAVIOR_STREAM.md) 与 [GAPS.md](GAPS.md) 第 13 节。
 
